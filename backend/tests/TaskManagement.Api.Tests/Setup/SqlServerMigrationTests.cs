@@ -56,10 +56,30 @@ public class SqlServerMigrationTests
                 Assert.Equal(HttpStatusCode.OK, (await client.LoginAsync("admin@example.com", "first operator passphrase", rememberMe: true)).StatusCode);
                 Assert.Contains(AppRoles.Administrator, (await client.GetStatusAsync()).User!.Roles);
                 Assert.Equal(1, await db.UserSessions.CountAsync());
-                Assert.Equal(HttpStatusCode.NoContent, (await client.LogoutAsync()).StatusCode);
-                Assert.Equal(0, await db.UserSessions.CountAsync());
+                // Phase 2 schema: seeded registry, protected system role, role/member management round trip.
+                Assert.Equal(TaskManagement.Api.Authorization.PermissionCatalog.Definitions.Count, await db.Permissions.CountAsync());
+                Assert.True(await db.Roles.Where(r => r.Name == AppRoles.Administrator).Select(r => r.IsSystem).SingleAsync());
+                var created = await client.PostAsync("/api/roles", new { name = "Developer", isActive = true });
+                Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+                var roleId = (await created.ReadJsonAsync()).GetProperty("id").GetGuid();
+                var viewId = await db.Permissions.Where(p => p.Key == "members.view").Select(p => p.Id).SingleAsync();
+                var accessId = await db.Permissions.Where(p => p.Key == "members.access").Select(p => p.Id).SingleAsync();
+                Assert.Equal(HttpStatusCode.OK, (await client.PutAsync($"/api/roles/{roleId}/permissions", new { permissionIds = new[] { accessId, viewId } })).StatusCode);
+                var member = await client.PostAsync("/api/members", new
+                {
+                    displayName = "Dev One", email = "dev1@example.com", userName = "dev1", roleId, setupMethod = "Password",
+                    password = "member passphrase 123", confirmPassword = "member passphrase 123",
+                    personalInformation = new { dateOfBirth = "1990-01-02", city = "Chennai" },
+                });
+                Assert.Equal(HttpStatusCode.Created, member.StatusCode);
+                var memberId = (await member.ReadJsonAsync()).GetProperty("id").GetGuid();
+                Assert.Equal(HttpStatusCode.OK, (await client.PutAsync($"/api/members/{memberId}/permissions",
+                    new { overrides = new[] { new { permissionId = viewId, effect = "Deny" } } })).StatusCode);
+                Assert.True(await db.AuditLogs.AnyAsync());
                 Assert.False((await scope.ServiceProvider.GetRequiredService<AdminProvisioner>()
                     .CreateInitialAdministratorAsync("second", "second@example.com", null, "second operator passphrase")).Succeeded);
+                Assert.Equal(HttpStatusCode.NoContent, (await client.LogoutAsync()).StatusCode);
+                Assert.Equal(0, await db.UserSessions.CountAsync());
             }
             finally
             {

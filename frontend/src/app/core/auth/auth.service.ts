@@ -26,6 +26,16 @@ export class AuthService {
 
   readonly currentUser = this.user.asReadonly();
   readonly isAuthenticated = computed(() => this.user() !== null);
+  private readonly permissionSet = computed(() => new Set(this.user()?.permissions ?? []));
+
+  /** UI hint only: whether the current user holds a permission. The API enforces the real check. */
+  can(permission: string): boolean {
+    return this.permissionSet().has(permission);
+  }
+
+  canAny(...permissions: string[]): boolean {
+    return permissions.some((p) => this.permissionSet().has(p));
+  }
 
   /** Loads the status once (also obtains the CSRF token cookie). Later calls reuse the result. */
   ensureStatusLoaded(): Promise<CurrentUser | null> {

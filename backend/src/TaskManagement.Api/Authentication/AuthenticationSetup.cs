@@ -7,7 +7,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TaskManagement.Api.Authorization;
 using TaskManagement.Api.Data;
+using TaskManagement.Api.Auditing;
 using TaskManagement.Api.Email;
+using TaskManagement.Api.Members;
+using TaskManagement.Api.Roles;
 
 namespace TaskManagement.Api.Authentication;
 
@@ -33,11 +36,12 @@ public static class AuthenticationSetup
         services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.SectionName));
         services.TryAddSingletonTimeProvider();
 
-        services.AddIdentity<ApplicationUser, IdentityRole<Guid>>()
+        services.AddIdentity<ApplicationUser, ApplicationRole>()
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddSignInManager<ApplicationSignInManager>()
             .AddPasswordValidator<ApplicationPasswordValidator>()
-            .AddDefaultTokenProviders();
+            .AddDefaultTokenProviders()
+            .AddTokenProvider<InvitationTokenProvider>(InvitationTokenProvider.ProviderName);
 
         services.AddOptions<IdentityOptions>().Configure<IOptions<AuthOptions>>((identity, auth) =>
         {
@@ -94,9 +98,16 @@ public static class AuthenticationSetup
         services.AddAuthorizationBuilder()
             // Every endpoint requires an authenticated user unless it explicitly opts out with [AllowAnonymous].
             .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
-            .AddPolicy(AuthorizationPolicies.Administrator, policy => policy.RequireRole(AppRoles.Administrator));
+            // Checked against the database (not cookie role claims) so role changes apply immediately.
+            .AddPolicy(AuthorizationPolicies.Administrator, policy => policy.AddRequirements(new AdministratorRequirement()));
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
-        services.AddScoped<IPermissionService, DenyAllPermissionService>();
+        services.AddScoped<IAuthorizationHandler, AdministratorAuthorizationHandler>();
+        services.AddScoped<IPermissionService, PermissionService>();
+        services.AddScoped<AccessPolicy>();
+        services.AddScoped<PermissionRegistry>();
+        services.AddScoped<AuditService>();
+        services.AddScoped<RoleService>();
+        services.AddScoped<MemberService>();
 
         services.AddRateLimiter(options =>
         {
@@ -112,6 +123,7 @@ public static class AuthenticationSetup
         services.AddScoped<AuthenticationService>();
         services.AddScoped<Setup.AdminProvisioner>();
         services.AddTransient<IEmailSender<ApplicationUser>, SmtpEmailSender>();
+        services.AddTransient<IMemberEmailSender, SmtpEmailSender>();
         return services;
     }
 

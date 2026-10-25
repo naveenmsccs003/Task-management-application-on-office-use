@@ -29,9 +29,38 @@ public sealed class ApiClient
         return (await response.Content.ReadFromJsonAsync<AuthStatusResponse>())!;
     }
 
-    public Task<HttpResponseMessage> PostAsync(string path, object? body = null, bool includeAntiforgeryToken = true)
+    public Task<HttpResponseMessage> PostAsync(string path, object? body = null, bool includeAntiforgeryToken = true) =>
+        SendAsync(HttpMethod.Post, path, body, includeAntiforgeryToken);
+
+    public Task<HttpResponseMessage> PutAsync(string path, object? body = null) => SendAsync(HttpMethod.Put, path, body);
+
+    public Task<HttpResponseMessage> DeleteAsync(string path) => SendAsync(HttpMethod.Delete, path, null);
+
+    public Task<HttpResponseMessage> GetAsync(string path) => Http.GetAsync(path);
+
+    public async Task<T> GetJsonAsync<T>(string path)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body ?? new { }) };
+        var response = await Http.GetAsync(path);
+        Assert.True(response.IsSuccessStatusCode, $"GET {path} returned {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+        return (await response.Content.ReadFromJsonAsync<T>(JsonOptions))!;
+    }
+
+    public static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new(System.Text.Json.JsonSerializerDefaults.Web)
+    {
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+    };
+
+    public Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body, bool includeAntiforgeryToken = true)
+    {
+        var request = new HttpRequestMessage(method, path);
+        if (body is HttpContent content)
+        {
+            request.Content = content;
+        }
+        else if (method != HttpMethod.Delete || body is not null)
+        {
+            request.Content = JsonContent.Create(body ?? new { });
+        }
         var token = Cookies.GetCookies(BaseAddress)[AntiforgeryCookie.RequestTokenCookieName]?.Value;
         if (includeAntiforgeryToken && token is not null)
         {

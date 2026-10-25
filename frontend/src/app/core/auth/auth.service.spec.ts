@@ -65,4 +65,13 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBe(false);
     http.expectOne('/api/auth/me').flush({ isAuthenticated: false, user: null });
   });
+
+  it('exposes permission checks for UI decisions', () => {
+    service.login({ userNameOrEmail: 'alice', password: 'x', rememberMe: false }).subscribe();
+    http.expectOne('/api/auth/login').flush({ ...TEST_USER, permissions: ['members.access', 'members.view'] });
+
+    expect(service.can('members.view')).toBe(true);
+    expect(service.can('roles.view')).toBe(false);
+    expect(service.canAny('roles.view', 'members.access')).toBe(true);
+  });
 });

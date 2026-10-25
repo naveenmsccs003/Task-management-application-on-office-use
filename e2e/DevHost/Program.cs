@@ -1,13 +1,14 @@
 using Microsoft.AspNetCore.Hosting;
 using TaskManagement.Api.Tests.Infrastructure;
 
-// Browser-test host: real API pipeline, in-memory database, one seeded user (alice).
+// Browser-test host: real API pipeline, in-memory database, seeded users alice (no role) and admin (Administrator).
 // Captured password-reset links are printed as "RESETLINK <url>" for the test script.
 var factory = new E2EFactory();
 factory.UseKestrel(5028);
 factory.StartServer();
 await factory.InitializeAsync();
 await factory.CreateUserAsync("alice", "alice@example.com", "correct horse battery");
+await factory.CreateUserAsync("admin", "admin@example.com", "operator passphrase 2026", roles: "Administrator");
 Console.WriteLine("READY");
 while (true)
 {

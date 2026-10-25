@@ -32,4 +32,19 @@ describe('ShellComponent', () => {
     expect(navigate).toHaveBeenCalledWith(['/login'], { queryParams: { reason: 'logged-out' } });
     http.verify();
   });
+
+  it('shows module tabs only for modules the user can access', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] });
+    const http = TestBed.inject(HttpTestingController);
+    const auth = TestBed.inject(AuthService);
+    auth.login({ userNameOrEmail: 'alice', password: 'x', rememberMe: false }).subscribe();
+    http.expectOne('/api/auth/login').flush({ ...TEST_USER, permissions: ['members.access', 'members.view'] });
+
+    const fixture = TestBed.createComponent(ShellComponent);
+    await fixture.whenStable();
+    const nav = (fixture.nativeElement as HTMLElement).querySelector('[data-testid=main-nav]')!;
+
+    expect(nav.querySelector('[data-testid=nav-members]')).not.toBeNull();
+    expect(nav.querySelector('[data-testid=nav-roles]')).toBeNull();
+  });
 });

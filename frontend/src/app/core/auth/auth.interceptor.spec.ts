@@ -12,16 +12,18 @@ describe('authInterceptor', () => {
   let navigate: ReturnType<typeof vi.spyOn>;
   const authenticated = signal(true);
   const handleSessionExpired = vi.fn();
+  const refreshStatus = vi.fn().mockResolvedValue(null);
 
   beforeEach(() => {
     authenticated.set(true);
     handleSessionExpired.mockReset();
+    refreshStatus.mockClear();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { isAuthenticated: authenticated, handleSessionExpired } },
+        { provide: AuthService, useValue: { isAuthenticated: authenticated, handleSessionExpired, refreshStatus } },
       ],
     });
     http = TestBed.inject(HttpClient);
@@ -47,12 +49,13 @@ describe('authInterceptor', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it('keeps the session on 403 (authorization failure)', () => {
+  it('keeps the session on 403 (authorization failure) but refreshes cached permissions', () => {
     let status = 0;
     http.get('/api/settings').subscribe({ error: (e) => (status = e.status) });
     controller.expectOne('/api/settings').flush(null, { status: 403, statusText: 'Forbidden' });
 
     expect(status).toBe(403);
+    expect(refreshStatus).toHaveBeenCalledOnce();
     expect(handleSessionExpired).not.toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
   });

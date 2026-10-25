@@ -1,0 +1,153 @@
+<div class="stagger">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb fs-xs mb-3">
+      <li class="breadcrumb-item"><a routerLink="/members" class="text-decoration-none">Members</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ member()?.displayName ?? '…' }}</li>
+    </ol>
+  </nav>
+
+  @if (error(); as message) {
+    <div class="alert alert-danger border-danger" role="alert"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><span>{{ message }}</span></div>
+  }
+
+  @if (member(); as m) {
+    <section class="app-card p-4 mb-4">
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <span class="avatar-sm" style="width: 4rem; height: 4rem; font-size: 1.15rem">
+          @if (m.hasPhoto) { <img [src]="photoUrl()" alt="Profile photo of {{ m.displayName }}" /> } @else { {{ initials(m.displayName) }} }
+        </span>
+        <div class="flex-grow-1 min-w-0">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <h1 class="page-title mb-0" data-testid="member-name">{{ m.displayName }}</h1>
+            @if (m.isSelf) { <span class="badge rounded-pill text-bg-light border">You</span> }
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-2 mt-1 fs-sm text-muted-app">
+            <span>&#64;{{ m.userName }}</span>
+            @if (m.role; as role) { <span class="role-chip" [class.system]="role.isSystem" [class.muted]="!role.isActive">{{ role.name }}</span> }
+            @if (m.isLockedOut) { <span class="status-pill locked">Locked</span> }
+            <span class="status-pill" [class.active]="m.isActive" [class.inactive]="!m.isActive" data-testid="member-status">{{ m.isActive ? 'Active' : 'Inactive' }}</span>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          @if (actions().edit) {
+            <a class="btn btn-light border" [routerLink]="['/members', m.id, 'edit']" data-testid="edit-member"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Edit</a>
+          }
+          @if (actions().changeRole) {
+            <button type="button" class="btn btn-light border" (click)="changingRole.set(true)" data-testid="change-role"><i class="bi bi-person-badge me-1" aria-hidden="true"></i>Change role</button>
+          }
+          @if (actions().resetPassword) {
+            <button type="button" class="btn btn-light border" (click)="resetPassword()"><i class="bi bi-key me-1" aria-hidden="true"></i>{{ m.hasPassword ? 'Reset password' : 'Resend invite' }}</button>
+          }
+          @if (actions().deactivate) {
+            <button type="button" class="btn btn-outline-warning" (click)="setStatus(false)" [disabled]="busy()" data-testid="deactivate-member"><i class="bi bi-person-slash me-1" aria-hidden="true"></i>Deactivate</button>
+          }
+          @if (actions().activate) {
+            <button type="button" class="btn btn-outline-success" (click)="setStatus(true)" [disabled]="busy()" data-testid="activate-member"><i class="bi bi-person-check me-1" aria-hidden="true"></i>Activate</button>
+          }
+          @if (actions().delete) {
+            <button type="button" class="btn btn-outline-danger" (click)="remove()"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Delete</button>
+          }
+        </div>
+      </div>
+      @if (!m.canManage) {
+        <div class="alert alert-secondary border-secondary mt-3 mb-0"><i class="bi bi-shield-lock" aria-hidden="true"></i><span>Administrator accounts can only be managed by administrators.</span></div>
+      }
+    </section>
+
+    <div class="app-tabs" role="tablist">
+      <button type="button" role="tab" [class.active]="tab() === 'overview'" [attr.aria-selected]="tab() === 'overview'" (click)="select('overview')"><i class="bi bi-person me-1" aria-hidden="true"></i>Overview</button>
+      <button type="button" role="tab" [class.active]="tab() === 'permissions'" [attr.aria-selected]="tab() === 'permissions'" (click)="select('permissions')" data-testid="permissions-tab"><i class="bi bi-sliders me-1" aria-hidden="true"></i>Permissions</button>
+      @if (auth.can(Perm.members.viewAudit)) {
+        <button type="button" role="tab" [class.active]="tab() === 'history'" [attr.aria-selected]="tab() === 'history'" (click)="select('history')"><i class="bi bi-clock-history me-1" aria-hidden="true"></i>History</button>
+      }
+    </div>
+
+    @switch (tab()) {
+      @case ('overview') {
+        <div class="row g-4">
+          <div class="col-12 col-lg-6">
+            <section class="app-card p-4 h-100">
+              <h2 class="section-title"><i class="bi bi-person-vcard" aria-hidden="true"></i>Account information</h2>
+              <dl class="kv-grid">
+                <div><dt>Full name</dt><dd>{{ m.displayName }}</dd></div>
+                <div><dt>Username</dt><dd>{{ m.userName }}</dd></div>
+                <div><dt>Email</dt><dd>{{ m.email || '—' }}</dd></div>
+                <div><dt>Member ID</dt><dd><code class="fs-xs">{{ m.id }}</code></dd></div>
+                <div><dt>Created</dt><dd>{{ m.createdAtUtc | date: 'd MMM y, HH:mm' }}{{ m.createdByName ? ' by ' + m.createdByName : '' }}</dd></div>
+                <div><dt>Last updated</dt><dd>{{ m.updatedAtUtc | date: 'd MMM y, HH:mm' }}</dd></div>
+              </dl>
+            </section>
+          </div>
+          <div class="col-12 col-lg-6">
+            <section class="app-card p-4 h-100">
+              <h2 class="section-title"><i class="bi bi-person-badge" aria-hidden="true"></i>Role &amp; account status</h2>
+              <dl class="kv-grid">
+                <div>
+                  <dt>Role</dt>
+                  <dd>
+                    @if (m.role; as role) {
+                      @if (auth.can(Perm.roles.view)) { <a [routerLink]="['/roles', role.id]" class="text-decoration-none">{{ role.name }}</a> } @else { {{ role.name }} }
+                      @if (!role.isActive) { <span class="fs-xs text-muted-app"> (inactive — grants nothing)</span> }
+                    } @else { — }
+                  </dd>
+                </div>
+                <div><dt>Status</dt><dd>{{ m.isActive ? 'Active' : 'Inactive' }}{{ m.isLockedOut ? ' · temporarily locked' : '' }}</dd></div>
+                <div><dt>Password</dt><dd>{{ m.hasPassword ? 'Set' : 'Invitation pending' }}</dd></div>
+                <div><dt>Last login</dt><dd>{{ m.lastLoginAtUtc ? (m.lastLoginAtUtc | date: 'd MMM y, HH:mm') : 'Never' }}</dd></div>
+                @if (m.isLockedOut && m.lockoutEndUtc) {
+                  <div><dt>Locked until</dt><dd>{{ m.lockoutEndUtc | date: 'd MMM y, HH:mm' }}</dd></div>
+                }
+              </dl>
+            </section>
+          </div>
+          <div class="col-12">
+            <section class="app-card p-4" data-testid="personal-section">
+              <h2 class="section-title"><i class="bi bi-person-lines-fill" aria-hidden="true"></i>Personal information</h2>
+              @if (m.personalInformation; as p) {
+                <dl class="kv-grid" style="grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr))">
+                  <div><dt>Date of birth</dt><dd>{{ p.dateOfBirth ? (p.dateOfBirth | date: 'd MMM y') : '—' }}</dd></div>
+                  <div><dt>Age</dt><dd>{{ p.age ?? '—' }}</dd></div>
+                  <div><dt>Phone</dt><dd>{{ p.phoneNumber || '—' }}</dd></div>
+                  <div><dt>Address</dt><dd>{{ p.addressLine || '—' }}</dd></div>
+                  <div><dt>City</dt><dd>{{ p.city || '—' }}</dd></div>
+                  <div><dt>State / province</dt><dd>{{ p.stateOrProvince || '—' }}</dd></div>
+                  <div><dt>Postal code</dt><dd>{{ p.postalCode || '—' }}</dd></div>
+                  <div><dt>Country</dt><dd>{{ p.country || '—' }}</dd></div>
+                </dl>
+              } @else {
+                <div class="empty-state py-3"><i class="bi bi-lock" aria-hidden="true"></i>You do not have permission to view personal information.</div>
+              }
+            </section>
+          </div>
+        </div>
+      }
+      @case ('permissions') {
+        <app-member-permissions [memberId]="m.id" />
+      }
+      @case ('history') {
+        <section class="app-card p-4">
+          @if (audit(); as entries) {
+            <ul class="audit-list">
+              @for (entry of entries; track entry.id) {
+                <li>
+                  <div>{{ entry.summary }}</div>
+                  <div class="fs-xs text-muted-app">{{ entry.actorName }} · {{ entry.timestampUtc | date: 'd MMM y, HH:mm' }}</div>
+                </li>
+              } @empty {
+                <li class="text-muted-app">No history recorded yet.</li>
+              }
+            </ul>
+          } @else {
+            <div class="text-center py-3"><span class="spinner-border spinner-border-sm" aria-label="Loading"></span></div>
+          }
+        </section>
+      }
+    }
+
+    @if (changingRole()) {
+      <app-change-role-dialog [member]="m" (closed)="changingRole.set(false)" (changed)="onRoleChanged($event)" />
+    }
+  } @else if (!error()) {
+    <div class="text-center py-5"><span class="spinner-border" aria-label="Loading member"></span></div>
+  }
+</div>

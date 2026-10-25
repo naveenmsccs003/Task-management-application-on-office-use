@@ -6,4 +6,6 @@ export const TEST_USER: CurrentUser = {
   email: 'alice@example.com',
   displayName: 'Alice',
   roles: [],
+  permissions: [],
+  isAdministrator: false,
 };

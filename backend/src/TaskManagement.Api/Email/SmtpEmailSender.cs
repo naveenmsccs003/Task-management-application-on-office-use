@@ -6,10 +6,25 @@ using TaskManagement.Api.Data;
 
 namespace TaskManagement.Api.Email;
 
+/// <summary>Account emails that Identity's <see cref="IEmailSender{TUser}"/> does not cover.</summary>
+public interface IMemberEmailSender
+{
+    /// <summary><paramref name="setupLink"/> must already be HTML-encoded.</summary>
+    Task SendInvitationAsync(ApplicationUser user, string email, string setupLink);
+}
+
 /// <summary>Identity email sender backed by System.Net.Mail (SMTP or a local pickup directory).</summary>
 public sealed class SmtpEmailSender(IOptions<EmailOptions> options, IHostEnvironment environment, ILogger<SmtpEmailSender> logger)
-    : IEmailSender<ApplicationUser>
+    : IEmailSender<ApplicationUser>, IMemberEmailSender
 {
+    public Task SendInvitationAsync(ApplicationUser user, string email, string setupLink) =>
+        SendAsync(email, $"{ApplicationName}: you have been invited",
+            $"<p>Hello {WebUtility.HtmlEncode(user.DisplayName ?? user.UserName)},</p>" +
+            $"<p>An account has been created for you in the {ApplicationName}. Your username is " +
+            $"<strong>{WebUtility.HtmlEncode(user.UserName)}</strong>.</p>" +
+            $"<p><a href=\"{setupLink}\">Choose your password</a></p>" +
+            "<p>The link expires in 3 days and can be used once.</p>");
+
     private const string ApplicationName = "Task Management System";
 
     public Task SendPasswordResetLinkAsync(ApplicationUser user, string email, string resetLink) =>

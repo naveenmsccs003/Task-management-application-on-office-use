@@ -1,0 +1,81 @@
+.matrix-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+
+.count-badge {
+  font-size: 0.8rem;
+  color: var(--app-muted);
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: var(--app-primary-soft);
+
+  strong { color: var(--app-primary); }
+}
+
+.modules { display: grid; gap: 0.75rem; }
+
+.module-card {
+  border: 1px solid var(--app-border);
+  border-radius: 0.875rem;
+  background: #fff;
+  overflow: hidden;
+
+  &.unavailable { background: #fafbfe; }
+}
+
+.module-header { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; }
+
+.module-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 0.875rem;
+  color: var(--app-text);
+
+  &:focus-visible { outline: none; box-shadow: var(--app-ring); border-radius: 0.375rem; }
+}
+
+.chevron { font-size: 0.75rem; color: var(--app-muted); transition: transform 0.2s ease; }
+.chevron.open { transform: rotate(90deg); }
+
+.module-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.55rem;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
+
+  .unavailable & { background: #f1f2f6; color: #a5abc3; }
+}
+
+.badge.soon { background: #fff7ed; color: #c2410c; font-weight: 600; }
+.badge.role-only { background: #f1f2f6; color: var(--app-muted); font-weight: 600; font-size: 0.65rem; margin-left: 0.35rem; }
+
+.permission-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0;
+  border-top: 1px solid var(--app-border);
+  animation: app-fade-in 0.2s ease both;
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.55rem 1rem;
+    transition: background-color 0.12s ease;
+
+    &:hover { background: #fafbff; }
+    &.child { padding-left: 2.5rem; }
+  }
+
+  .form-check-input { margin-top: 0.2rem; flex-shrink: 0; }
+  label { cursor: pointer; font-size: 0.8125rem; }
+}
+
+.perm-name { font-weight: 550; }
+.perm-desc { display: block; font-size: 0.75rem; color: var(--app-muted); }
+.perm-key { font-size: 0.7rem; color: #7c3aed; background: #f5f3ff; padding: 0.15rem 0.4rem; border-radius: 0.35rem; align-self: center; }

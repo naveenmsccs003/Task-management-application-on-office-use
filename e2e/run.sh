@@ -24,3 +24,4 @@ for _ in $(seq 1 90); do
 done
 
 node flow.mjs "$PWD/output/devhost.log"
+node flow-rbac.mjs

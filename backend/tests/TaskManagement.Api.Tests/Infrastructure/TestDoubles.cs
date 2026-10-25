@@ -2,18 +2,25 @@ using System.Collections.Concurrent;
 using System.Net;
 using Microsoft.AspNetCore.Identity;
 using TaskManagement.Api.Data;
+using TaskManagement.Api.Email;
 
 namespace TaskManagement.Api.Tests.Infrastructure;
 
-public sealed record SentEmail(string To, string Link);
+public sealed record SentEmail(string To, string Link, string Kind = "reset");
 
-public sealed class CapturingEmailSender : IEmailSender<ApplicationUser>
+public sealed class CapturingEmailSender : IEmailSender<ApplicationUser>, IMemberEmailSender
 {
     public ConcurrentQueue<SentEmail> Sent { get; } = new();
 
     public Task SendPasswordResetLinkAsync(ApplicationUser user, string email, string resetLink)
     {
         Sent.Enqueue(new SentEmail(email, WebUtility.HtmlDecode(resetLink)));
+        return Task.CompletedTask;
+    }
+
+    public Task SendInvitationAsync(ApplicationUser user, string email, string setupLink)
+    {
+        Sent.Enqueue(new SentEmail(email, WebUtility.HtmlDecode(setupLink), "invitation"));
         return Task.CompletedTask;
     }
 

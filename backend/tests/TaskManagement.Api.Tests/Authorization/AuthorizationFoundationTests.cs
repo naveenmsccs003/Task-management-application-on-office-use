@@ -83,5 +83,14 @@ public class AuthorizationFoundationTests : ApiTestBase
     {
         public Task<bool> HasPermissionAsync(Guid userId, string permission, CancellationToken cancellationToken = default) =>
             Task.FromResult(granted.Contains(permission));
+
+        public Task<IReadOnlySet<string>> GetEffectivePermissionsAsync(Guid userId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlySet<string>>(granted.ToHashSet());
+
+        public Task<bool> IsAdministratorAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+
+        public void Invalidate()
+        {
+        }
     }
 }

@@ -11,7 +11,10 @@
   nav { height: 3.75rem; }
 }
 
+.main-nav { display: flex; gap: 0.25rem; }
+
 .nav-pill {
+  display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   padding: 0.4rem 0.75rem;
@@ -82,7 +85,7 @@
   border-bottom: 1px solid var(--app-border);
 }
 
-.min-w-0 { min-width: 0; }
+
 
 .menu-item {
   display: flex;

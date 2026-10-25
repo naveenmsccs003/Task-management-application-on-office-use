@@ -1,0 +1,95 @@
+<div class="stagger">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb fs-xs mb-3">
+      <li class="breadcrumb-item"><a routerLink="/roles" class="text-decoration-none">Roles &amp; Permissions</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ role()?.name ?? '…' }}</li>
+    </ol>
+  </nav>
+
+  @if (error(); as message) {
+    <div class="alert alert-danger border-danger" role="alert"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><span>{{ message }}</span></div>
+  }
+
+  @if (role(); as r) {
+    <section class="app-card p-4 mb-4">
+      <div class="d-flex flex-wrap align-items-start gap-3">
+        <span class="icon-tile tile-gradient" style="width: 3rem; height: 3rem; font-size: 1.3rem"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
+        <div class="flex-grow-1 min-w-0">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <h1 class="page-title mb-0" data-testid="role-name">{{ r.name }}</h1>
+            @if (r.isSystem) { <span class="role-chip system"><i class="bi bi-lock-fill" aria-hidden="true"></i>System role</span> }
+            <span class="status-pill" [class.active]="r.isActive" [class.inactive]="!r.isActive">{{ r.isActive ? 'Active' : 'Inactive' }}</span>
+          </div>
+          <p class="text-muted-app fs-sm mb-0 mt-1">{{ r.description || 'No description.' }}</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          @if (auth.can(Perm.roles.edit)) {
+            <a class="btn btn-light border" [routerLink]="['/roles', r.id, 'edit']"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Edit</a>
+            @if (!r.isSystem) {
+              <button type="button" class="btn btn-light border" (click)="toggleStatus()">
+                <i class="bi me-1" [class.bi-toggle-on]="r.isActive" [class.bi-toggle-off]="!r.isActive" aria-hidden="true"></i>{{ r.isActive ? 'Deactivate' : 'Activate' }}
+              </button>
+            }
+          }
+          @if (auth.can(Perm.roles.delete) && !r.isSystem) {
+            <button type="button" class="btn btn-outline-danger" (click)="deleting.set(true)"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Delete</button>
+          }
+        </div>
+      </div>
+      <dl class="kv-grid mt-4" style="grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr))">
+        <div>
+          <dt>Members</dt>
+          <dd>
+            @if (auth.can(Perm.members.view)) {
+              <a [routerLink]="['/members']" [queryParams]="{ roleId: r.id }" class="text-decoration-none fw-semibold">{{ r.memberCount }} <i class="bi bi-arrow-right-short" aria-hidden="true"></i></a>
+            } @else { {{ r.memberCount }} }
+          </dd>
+        </div>
+        <div><dt>Permissions</dt><dd>{{ r.permissionCount }}</dd></div>
+        <div><dt>Created</dt><dd>{{ r.createdAtUtc | date: 'd MMM y' }}</dd></div>
+        <div><dt>Created by</dt><dd>{{ r.createdByName || 'System' }}</dd></div>
+        <div><dt>Last updated</dt><dd>{{ r.updatedAtUtc | date: 'd MMM y, HH:mm' }}</dd></div>
+      </dl>
+    </section>
+
+    <div class="app-tabs" role="tablist">
+      <button type="button" role="tab" [class.active]="tab() === 'permissions'" [attr.aria-selected]="tab() === 'permissions'" (click)="tab.set('permissions')" id="permissions">
+        <i class="bi bi-sliders me-1" aria-hidden="true"></i>Permissions
+      </button>
+      @if (auth.can(Perm.roles.viewAudit)) {
+        <button type="button" role="tab" [class.active]="tab() === 'history'" [attr.aria-selected]="tab() === 'history'" (click)="showHistory()">
+          <i class="bi bi-clock-history me-1" aria-hidden="true"></i>History
+        </button>
+      }
+    </div>
+
+    @if (tab() === 'permissions' && permissions(); as p) {
+      <app-permission-matrix [roleId]="r.id" [modules]="modules()" [granted]="p.grantedPermissionIds" [editable]="p.isEditable"
+                             [isSystem]="p.isSystem" [memberCount]="r.memberCount" (saved)="onPermissionsSaved($event)" />
+    }
+    @if (tab() === 'history') {
+      <section class="app-card p-4">
+        @if (audit(); as entries) {
+          <ul class="audit-list">
+            @for (entry of entries; track entry.id) {
+              <li>
+                <div>{{ entry.summary }}</div>
+                <div class="fs-xs text-muted-app">{{ entry.actorName }} · {{ entry.timestampUtc | date: 'd MMM y, HH:mm' }}</div>
+              </li>
+            } @empty {
+              <li class="text-muted-app">No history recorded yet.</li>
+            }
+          </ul>
+        } @else {
+          <div class="text-center py-3"><span class="spinner-border spinner-border-sm" aria-label="Loading"></span></div>
+        }
+      </section>
+    }
+
+    @if (deleting()) {
+      <app-delete-role-dialog [role]="r" (closed)="deleting.set(false)" (deleted)="onDeleted()" />
+    }
+  } @else if (!error()) {
+    <div class="text-center py-5"><span class="spinner-border" aria-label="Loading role"></span></div>
+  }
+</div>

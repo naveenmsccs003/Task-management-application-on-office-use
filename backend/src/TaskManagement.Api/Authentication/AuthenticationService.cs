@@ -6,7 +6,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using TaskManagement.Api.Authorization;
 using TaskManagement.Api.Data;
+using TaskManagement.Api.Members;
 
 namespace TaskManagement.Api.Authentication;
 
@@ -20,6 +22,7 @@ public class AuthenticationService(
     IPasswordHasher<ApplicationUser> passwordHasher,
     IEmailSender<ApplicationUser> emailSender,
     ApplicationDbContext db,
+    IPermissionService permissions,
     IOptions<AuthOptions> authOptions,
     IOptions<FrontendOptions> frontendOptions,
     TimeProvider timeProvider,
@@ -63,6 +66,8 @@ public class AuthenticationService(
         }
 
         await signInManager.SignInAsync(user, CreateSessionProperties(request.RememberMe), authenticationMethod: "pwd");
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        await db.Users.Where(u => u.Id == user.Id).ExecuteUpdateAsync(u => u.SetProperty(x => x.LastLoginAtUtc, now));
         SecurityLog.LoginSucceeded(logger, user.Id, request.RememberMe, remoteIp);
         return user;
     }
@@ -91,7 +96,9 @@ public class AuthenticationService(
         }
 
         var roles = await userManager.GetRolesAsync(user);
-        return new CurrentUserResponse(user.Id, user.UserName!, user.Email, user.DisplayName, [.. roles]);
+        var effective = await permissions.GetEffectivePermissionsAsync(user.Id);
+        return new CurrentUserResponse(user.Id, user.UserName!, user.Email, user.DisplayName, [.. roles],
+            [.. effective.Order()], await permissions.IsAdministratorAsync(user.Id));
     }
 
     /// <summary>Changes the password, revokes every other session and re-issues the current one.</summary>
@@ -170,7 +177,27 @@ public class AuthenticationService(
 
         // Identity verifies the token (signature, lifetime, security stamp) before validating the
         // new password, and the stamp changes on success, so a token can only be used once.
-        var result = await userManager.ResetPasswordAsync(user, token, request.NewPassword);
+        IdentityResult result;
+        if (request.IsInvitation)
+        {
+            var valid = !await userManager.HasPasswordAsync(user)
+                && await userManager.VerifyUserTokenAsync(user, InvitationTokenProvider.ProviderName, InvitationTokenProvider.Purpose, token);
+            if (!valid)
+            {
+                SecurityLog.PasswordResetRejected(logger, remoteIp);
+                return AuthResult.Failure("token", InvalidResetLinkMessage);
+            }
+            result = await userManager.AddPasswordAsync(user, request.NewPassword);
+            if (result.Succeeded)
+            {
+                user.EmailConfirmed = true;
+                await userManager.UpdateAsync(user);
+            }
+        }
+        else
+        {
+            result = await userManager.ResetPasswordAsync(user, token, request.NewPassword);
+        }
         if (!result.Succeeded)
         {
             if (result.Errors.Any(e => e.Code == nameof(IdentityErrorDescriber.InvalidToken)))

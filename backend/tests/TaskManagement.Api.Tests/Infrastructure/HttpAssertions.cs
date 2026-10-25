@@ -13,7 +13,8 @@ public static class HttpAssertions
     public static async Task<string[]> ValidationErrorsAsync(this HttpResponseMessage response, string field)
     {
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var json = await response.ReadJsonAsync();
+        // Parse from the (repeatable) string so the same response can be inspected for several fields.
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();
         var errors = json.GetProperty("errors");
         foreach (var property in errors.EnumerateObject())
         {

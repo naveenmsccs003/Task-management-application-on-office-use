@@ -23,6 +23,8 @@ export class ResetPasswordComponent {
   // The link's parameters are read once, then removed from the address bar and history.
   private readonly userId: string | null;
   private readonly token: string | null;
+  /** Invitation links set the first password of a newly created member. */
+  protected readonly isInvitation: boolean;
 
   protected readonly form = inject(FormBuilder).nonNullable.group(
     {
@@ -41,6 +43,7 @@ export class ResetPasswordComponent {
     const params = inject(ActivatedRoute).snapshot.queryParamMap;
     this.userId = params.get('uid');
     this.token = params.get('token');
+    this.isInvitation = params.get('invite') === '1';
     this.linkInvalid.set(!this.userId || !this.token);
     inject(Location).replaceState('/reset-password');
   }
@@ -67,7 +70,7 @@ export class ResetPasswordComponent {
     this.serverPasswordErrors.set([]);
     this.submitting.set(true);
     this.auth
-      .resetPassword({ userId: this.userId!, token: this.token!, ...this.form.getRawValue() })
+      .resetPassword({ userId: this.userId!, token: this.token!, ...this.form.getRawValue(), isInvitation: this.isInvitation })
       .pipe(finalize(() => this.submitting.set(false)))
       .subscribe({
         next: () => void this.router.navigate(['/login'], { queryParams: { reason: 'password-reset' } }),

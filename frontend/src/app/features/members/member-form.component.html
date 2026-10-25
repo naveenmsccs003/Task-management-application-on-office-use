@@ -1,0 +1,215 @@
+<div class="stagger">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb fs-xs mb-3">
+      <li class="breadcrumb-item"><a routerLink="/members" class="text-decoration-none">Members</a></li>
+      @if (member(); as m) {
+        <li class="breadcrumb-item"><a [routerLink]="['/members', m.id]" class="text-decoration-none">{{ m.displayName }}</a></li>
+      }
+      <li class="breadcrumb-item active" aria-current="page">{{ isEdit() ? 'Edit' : 'Add member' }}</li>
+    </ol>
+  </nav>
+  <header class="page-header">
+    <span class="icon-tile tile-gradient"><i class="bi" [class.bi-person-plus]="!isEdit()" [class.bi-person-gear]="isEdit()" aria-hidden="true"></i></span>
+    <div>
+      <h1 class="page-title">{{ isEdit() ? 'Edit member' : 'Add member' }}</h1>
+      <p class="page-subtitle">{{ isEdit() ? 'Update the details you are allowed to change.' : 'Create an account and choose how the member sets their password.' }}</p>
+    </div>
+  </header>
+
+  @if (error(); as message) {
+    <div class="alert alert-danger border-danger" role="alert"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><span>{{ message }}</span></div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="loading()">
+    <div class="row g-4">
+      <div class="col-12 col-xl-7">
+        <section class="app-card p-4 mb-4">
+          <h2 class="section-title"><i class="bi bi-person-vcard" aria-hidden="true"></i>Account information</h2>
+          <div class="row g-3">
+            <div class="col-12">
+              <label for="displayName" class="form-label">Full name</label>
+              <div class="input-icon"><i class="bi bi-person" aria-hidden="true"></i>
+                <input id="displayName" class="form-control" formControlName="displayName" autocomplete="off" required [class.is-invalid]="invalid('displayName')" />
+              </div>
+              @if (invalid('displayName')) {
+                <div class="invalid-feedback d-block">{{ firstError('displayName') ?? 'Full name is required.' }}</div>
+              }
+            </div>
+            <div class="col-12 col-md-6">
+              <label for="email" class="form-label">Email address</label>
+              <div class="input-icon"><i class="bi bi-envelope" aria-hidden="true"></i>
+                <input id="email" type="email" class="form-control" formControlName="email" autocomplete="off" required [class.is-invalid]="invalid('email')" />
+              </div>
+              @if (invalid('email')) {
+                <div class="invalid-feedback d-block">{{ firstError('email') ?? 'Enter a valid email address.' }}</div>
+              }
+              @if (isEdit() && !canEditEmail()) { <div class="form-text fs-xs"><i class="bi bi-lock me-1" aria-hidden="true"></i>You cannot change the email address.</div> }
+            </div>
+            <div class="col-12 col-md-6">
+              <label for="userName" class="form-label">Username</label>
+              <div class="input-icon"><i class="bi bi-at" aria-hidden="true"></i>
+                <input id="userName" class="form-control" formControlName="userName" autocomplete="off" autocapitalize="none" required [class.is-invalid]="invalid('userName')" />
+              </div>
+              @if (invalid('userName')) {
+                <div class="invalid-feedback d-block">{{ firstError('userName') ?? 'Use 3–64 letters, numbers, dots, hyphens or underscores.' }}</div>
+              }
+            </div>
+
+            @if (!isEdit()) {
+              <div class="col-12 col-md-6">
+                <label for="roleId" class="form-label">Role</label>
+                <select id="roleId" class="form-select" formControlName="roleId" required [class.is-invalid]="invalid('roleId')">
+                  <option value="">Select a role…</option>
+                  @for (role of roles(); track role.id) {
+                    <option [value]="role.id" [disabled]="!role.isAssignable">{{ role.name }}{{ role.isAssignable ? '' : ' (not permitted)' }}</option>
+                  }
+                </select>
+                @if (invalid('roleId')) {
+                  <div class="invalid-feedback d-block">{{ firstError('roleId') ?? 'Select a role.' }}</div>
+                }
+              </div>
+              <div class="col-12 col-md-6 d-flex align-items-end">
+                <div class="form-check form-switch mb-2">
+                  <input id="isActive" type="checkbox" role="switch" class="form-check-input" formControlName="isActive" />
+                  <label for="isActive" class="form-check-label fs-sm">Account active</label>
+                </div>
+              </div>
+            } @else if (member(); as m) {
+              <div class="col-12">
+                <div class="alert alert-secondary border-secondary mb-0">
+                  <i class="bi bi-info-circle" aria-hidden="true"></i>
+                  <span>Role and account status are changed from the <a [routerLink]="['/members', m.id]" class="alert-link">member page</a>.</span>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+
+        @if (!isEdit()) {
+          <section class="app-card p-4 mb-4">
+            <h2 class="section-title"><i class="bi bi-key" aria-hidden="true"></i>Password setup</h2>
+            <div class="row g-3 mb-1" role="radiogroup" aria-label="Password setup method">
+              <div class="col-12 col-md-6">
+                <input type="radio" class="btn-check" id="setupInvite" formControlName="setupMethod" value="Invitation" />
+                <label class="choice-card" for="setupInvite">
+                  <i class="bi bi-envelope-paper" aria-hidden="true"></i>
+                  <span><strong>Send invitation</strong><small>The member chooses their own password from a secure link (valid 3 days). Recommended.</small></span>
+                </label>
+              </div>
+              <div class="col-12 col-md-6">
+                <input type="radio" class="btn-check" id="setupPassword" formControlName="setupMethod" value="Password" />
+                <label class="choice-card" for="setupPassword">
+                  <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                  <span><strong>Set a password</strong><small>You set the first password and share it securely.</small></span>
+                </label>
+              </div>
+            </div>
+            @if (usesPassword()) {
+              <div class="row g-3 mt-1">
+                <div class="col-12 col-md-6">
+                  <label for="password" class="form-label">Password</label>
+                  <div class="input-icon"><i class="bi bi-lock" aria-hidden="true"></i>
+                    <input id="password" type="password" class="form-control" formControlName="password" autocomplete="new-password"
+                           [class.is-invalid]="(form.controls.password.touched && form.controls.password.value.length < minLength) || serverErrorsFor('password').length" />
+                  </div>
+                  @for (message of serverErrorsFor('password'); track message) { <div class="invalid-feedback d-block">{{ message }}</div> }
+                  @if (form.controls.password.touched && form.controls.password.value.length < minLength) {
+                    <div class="invalid-feedback d-block">Use at least {{ minLength }} characters.</div>
+                  }
+                </div>
+                <div class="col-12 col-md-6">
+                  <label for="confirmPassword" class="form-label">Confirm password</label>
+                  <div class="input-icon"><i class="bi bi-lock-fill" aria-hidden="true"></i>
+                    <input id="confirmPassword" type="password" class="form-control" formControlName="confirmPassword" autocomplete="new-password" [class.is-invalid]="passwordMismatch" />
+                  </div>
+                  @if (passwordMismatch) { <div class="invalid-feedback d-block">The passwords must match.</div> }
+                </div>
+              </div>
+            }
+          </section>
+        }
+      </div>
+
+      <div class="col-12 col-xl-5">
+        @if (auth.can(Perm.members.editPersonal) && (!isEdit() || member())) {
+          <section class="app-card p-4 mb-4">
+            <h2 class="section-title"><i class="bi bi-image" aria-hidden="true"></i>Profile photo <span class="text-muted-app fw-normal fs-xs ms-1">(optional)</span></h2>
+            <div class="d-flex align-items-center gap-3">
+              <span class="avatar-sm" style="width: 4rem; height: 4rem; font-size: 1.1rem" data-testid="photo-preview">
+                @if (isEdit()) {
+                  @if (member()?.hasPhoto) { <img [src]="photoUrl()" alt="Profile photo" /> } @else { {{ initials(member()?.displayName) }} }
+                } @else {
+                  @if (pendingPreview(); as preview) { <img [src]="preview" alt="Selected profile photo" /> }
+                  @else { {{ initials(form.controls.displayName.value) }} }
+                }
+              </span>
+              <div class="d-flex flex-wrap gap-2">
+                <label class="btn btn-sm btn-soft mb-0" [class.disabled]="uploading()">
+                  <i class="bi bi-upload me-1" aria-hidden="true"></i>{{ (isEdit() ? member()?.hasPhoto : pendingPhoto()) ? 'Replace' : 'Upload' }}
+                  <input type="file" accept="image/png,image/jpeg" class="d-none" (change)="onPhotoSelected($event)" data-testid="photo-input" />
+                </label>
+                @if (isEdit() ? member()?.hasPhoto : pendingPhoto()) {
+                  <button type="button" class="btn btn-sm btn-light border" (click)="removePhoto()">Remove</button>
+                }
+              </div>
+            </div>
+            @if (photoError(); as message) {
+              <div class="invalid-feedback d-block">{{ message }}</div>
+            }
+            <p class="form-text fs-xs mb-0 mt-2">JPEG or PNG, up to 1 MB.{{ isEdit() ? '' : ' Uploaded when the member is created.' }}</p>
+          </section>
+        }
+
+        <section class="app-card p-4 mb-4" formGroupName="personal">
+          <h2 class="section-title"><i class="bi bi-person-lines-fill" aria-hidden="true"></i>Personal information <span class="text-muted-app fw-normal fs-xs ms-1">(optional)</span></h2>
+          @if (!canEditPersonal()) {
+            <div class="alert alert-secondary border-secondary mb-0" data-testid="personal-restricted">
+              <i class="bi bi-lock" aria-hidden="true"></i><span>You do not have permission to {{ isEdit() ? 'edit' : 'enter' }} personal information.</span>
+            </div>
+          } @else {
+            <div class="row g-3">
+              <div class="col-8">
+                <label for="dateOfBirth" class="form-label">Date of birth</label>
+                <input id="dateOfBirth" type="date" class="form-control" formControlName="dateOfBirth" [class.is-invalid]="invalid('personal.dateOfBirth')" />
+                @if (invalid('personal.dateOfBirth')) {
+                  <div class="invalid-feedback d-block">{{ firstError('personalInformation.dateOfBirth') ?? 'Enter a valid date in the past.' }}</div>
+                }
+              </div>
+              <div class="col-4">
+                <span class="form-label d-block">Age</span>
+                <div class="form-control-plaintext fw-semibold" data-testid="age">{{ age() ?? '—' }}</div>
+              </div>
+              <div class="col-12">
+                <label for="phoneNumber" class="form-label">Phone number</label>
+                <div class="input-icon"><i class="bi bi-telephone" aria-hidden="true"></i>
+                  <input id="phoneNumber" type="tel" class="form-control" formControlName="phoneNumber" autocomplete="off" [class.is-invalid]="invalid('personal.phoneNumber')" />
+                </div>
+                @if (invalid('personal.phoneNumber')) { <div class="invalid-feedback d-block">Enter a valid phone number.</div> }
+              </div>
+              <div class="col-12">
+                <label for="addressLine" class="form-label">Address</label>
+                <input id="addressLine" class="form-control" formControlName="addressLine" autocomplete="off" />
+              </div>
+              <div class="col-12 col-sm-6"><label for="city" class="form-label">City</label><input id="city" class="form-control" formControlName="city" autocomplete="off" /></div>
+              <div class="col-12 col-sm-6"><label for="stateOrProvince" class="form-label">State / province</label><input id="stateOrProvince" class="form-control" formControlName="stateOrProvince" autocomplete="off" /></div>
+              <div class="col-12 col-sm-6">
+                <label for="postalCode" class="form-label">Postal code</label>
+                <input id="postalCode" class="form-control" formControlName="postalCode" autocomplete="off" [class.is-invalid]="invalid('personal.postalCode')" />
+                @if (invalid('personal.postalCode')) { <div class="invalid-feedback d-block">Letters, numbers, spaces and hyphens only.</div> }
+              </div>
+              <div class="col-12 col-sm-6"><label for="country" class="form-label">Country</label><input id="country" class="form-control" formControlName="country" autocomplete="off" /></div>
+            </div>
+          }
+        </section>
+      </div>
+    </div>
+
+    <div class="d-flex flex-column-reverse flex-sm-row gap-2 justify-content-end">
+      <a [routerLink]="isEdit() ? ['/members', id()] : ['/members']" class="btn btn-light border px-4">Cancel</a>
+      <button type="submit" class="btn btn-gradient px-4" [disabled]="saving() || loading()" data-testid="save-member">
+        @if (saving()) { <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Saving… }
+        @else { <i class="bi bi-check2 me-1" aria-hidden="true"></i>{{ isEdit() ? 'Save changes' : 'Create member' }} }
+      </button>
+    </div>
+  </form>
+</div>

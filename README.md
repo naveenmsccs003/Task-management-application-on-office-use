@@ -1,9 +1,12 @@
-# Task Management System — Authentication Foundation
+# Task Management System
 
-This repository currently contains **only** the login and authentication foundation of the Task
-Management System. Members, Projects, Tasks, Dashboard, Meeting Notes, Milestones and Global
-Settings are intentionally not implemented yet; the authentication layer is designed so they can
-be added later with database-driven, permission-based authorization.
+Implemented so far:
+
+- **Phase 1:** login and authentication foundation.
+- **Phase 2:** Role Management and Member Management, with database-driven permissions and member-specific overrides.
+
+Projects, Tasks, Dashboard, Meeting Notes, Milestones and Global Settings are not implemented yet. Their
+permissions are registered as *inactive*, so they appear as "Coming soon" and are never granted.
 
 | Layer     | Technology                                                                       |
 |-----------|----------------------------------------------------------------------------------|
@@ -22,8 +25,12 @@ backend/
   TaskManagement.slnx
   src/TaskManagement.Api/
     Authentication/   AuthenticationService, options, session store, sign-in manager, security log
-    Authorization/    Roles, [RequirePermission] + IPermissionService (RBAC extension point)
-    Controllers/      AuthController (/api/auth/*)
+    Authorization/    PermissionCatalog (registry), PermissionService (central resolver),
+                      AccessPolicy (delegation rules), [RequirePermission]
+    Auditing/         AuditService (role/permission/member audit trail)
+    Roles/            RoleService, PermissionRegistry, DTOs
+    Members/          MemberService, invitation tokens, DTOs
+    Controllers/      Auth, Roles, Permissions, Members controllers
     Data/             ApplicationUser, ApplicationDbContext, UserSession, Migrations/
     Email/            SMTP / pickup-directory implementation of Identity's IEmailSender
     Infrastructure/   CSRF filter, security headers
@@ -31,8 +38,12 @@ backend/
   tests/TaskManagement.Api.Tests/
 e2e/                  Browser test: DevHost (API on in-memory SQLite) + Playwright script
 frontend/
-  src/app/core/auth/  AuthService, authGuard/guestGuard, authInterceptor, models
-  src/app/features/auth/  Login, ForgotPassword, ResetPassword, ChangePassword components
+  src/app/core/auth/  AuthService (+ can()), authGuard/guestGuard/permissionGuard, authInterceptor
+  src/app/core/api/   RolesApi, MembersApi, models
+  src/app/core/ui/    Toasts, confirmation dialog, modal, pagination
+  src/app/features/auth/  Login, ForgotPassword, ResetPassword (also invitations), ChangePassword
+  src/app/features/roles/    Role list, form, detail + permission matrix
+  src/app/features/members/  Member list, form, detail, change-role dialog, override editor
   src/app/layout/     Authenticated shell (navbar, sign out)
 ```
 
@@ -98,7 +109,7 @@ single origin. In development, password-reset emails are written as `.eml` files
 ### Tests
 
 ```bash
-# Backend: 57 integration/unit tests (in-memory SQLite, no database server needed)
+# Backend: 122 integration/unit tests (in-memory SQLite, no database server needed)
 cd backend && dotnet test
 
 # Backend against a real SQL Server: applies the EF migrations to a throwaway database, provisions
@@ -106,12 +117,13 @@ cd backend && dotnet test
 TM_TEST_SQLSERVER="Server=localhost,1433;User Id=sa;Password=<pw>;TrustServerCertificate=True" \
   dotnet test --filter "FullyQualifiedName~SqlServerMigrationTests"
 
-# Frontend: 48 component/service tests (Vitest + jsdom)
+# Frontend: 78 component/service tests (Vitest + jsdom)
 cd frontend && npx ng test --watch=false
 
-# End-to-end browser flow (20 checks): starts the real API (in-memory SQLite) and `ng serve`,
-# drives Chromium through login, lockout message, password change, logout, forgot/reset password,
-# Remember Me, session expiry, Enter-to-submit and 375/768 px layouts. Screenshots go to e2e/output/.
+# End-to-end browser flows (41 checks): start the real API (in-memory SQLite) and `ng serve`, then drive
+# Chromium through the authentication flows (flow.mjs) and roles/members/overrides/enforcement
+# (flow-rbac.mjs). Seeded users: alice / correct horse battery (no role), admin / operator passphrase 2026
+# (Administrator). Screenshots go to e2e/output/.
 cd e2e && E2E_CHROMIUM=/path/to/chromium ./run.sh
 ```
 
@@ -224,6 +236,107 @@ passwords, tokens, cookies or the submitted login identifier.
 `Referrer-Policy: no-referrer` and `Cache-Control: no-store` on `/api`. HSTS is enabled outside
 Development. Unhandled exceptions return generic Problem Details with no stack traces.
 
+## Phase 2: Roles, permissions and members
+
+### Permission registry
+`Authorization/PermissionCatalog.cs` is the only place permissions are defined. Each has a fixed id, a
+unique machine-readable key (for example `members.change_role`), a display name, a description, a
+module, a parent (the module's *Tab Access* permission), and a flag saying whether an individual member
+may be granted it. The rows are seeded into the `Permissions` table through EF Core migrations. Clients
+can only read them; they can never create one.
+
+To add a module later:
+
+1. Add its permissions to the catalog. Use new ids and never reuse old ones.
+2. Mark the module as implemented once its endpoints exist.
+3. Protect the endpoints with `[RequirePermission("<key>")]`.
+4. Add a migration.
+
+Implemented keys:
+
+- **Members:** `members.access`, `.view`, `.view_details`, `.create`, `.edit`, `.change_email`,
+  `.delete`, `.activate`, `.deactivate`, `.change_role`, `.reset_password`,
+  `.view_personal_information`, `.edit_personal_information`, `.export`, `.manage_permissions`,
+  `.view_audit`.
+- **Roles:** `roles.access`, `.view`, `.create`, `.edit`, `.delete`, `.manage_permissions`,
+  `.view_audit`.
+
+### Permission resolution
+`PermissionService` is the only resolver. It is used by every endpoint check, by `/api/auth/me` and by
+the administrator policy. Rules, in order:
+
+1. Unknown or inactive users get nothing.
+2. Unknown permissions, and inactive (unimplemented) ones, are never granted, even to administrators.
+3. Members of the active system role **Administrator** get every active permission.
+4. Otherwise, start from the defaults of the member's role, if the role is active.
+5. A member-level **Deny** removes a permission, even when the role grants it.
+6. A member-level **Allow** adds a permission only if that permission may be granted individually.
+   Security-administration permissions cannot be: `roles.create/edit/delete/manage_permissions`,
+   `members.change_role` and `members.manage_permissions` come only from roles.
+7. A permission inside a module counts only when that module's Tab Access is also effective.
+8. Anything not granted is denied.
+
+"Inherit" is stored as the absence of an override row. Permissions are resolved from the database on
+every request; results are cached only within a single request. A revoked permission therefore stops
+working on the very next request, and there is no cache to invalidate.
+
+### Delegation and escalation rules
+- Non-administrators can grant only permissions they currently hold. This applies to role permission
+  changes and to member Allow overrides.
+- Assigning a role requires the role to be active and its permissions to be within the assigner's own.
+- Only administrators can assign the Administrator role, or edit, deactivate, re-role, reset or delete
+  an administrator account.
+- Nobody can change their own role, status, overrides or deletion. Non-administrators can't edit the
+  permissions of a role they hold.
+- The system role can't be renamed, deactivated, deleted or have its permissions edited.
+- The last active administrator can't be removed.
+- **Recovery:** `dotnet run -- grant-admin --email <address>` restores administrator access to an
+  existing account. It is an operator-only command and works only when no active administrator exists.
+- Updates use explicit DTOs. Role and status have their own endpoints. Each field group needs its own
+  permission: name and username need `edit`, email needs `change_email`, and personal information needs
+  `edit_personal_information`. Unknown JSON properties are ignored.
+- The member list has a Member ID column and a per-row actions menu (Change role, Reset password,
+  Activate/Deactivate, Delete). The menu shows only actions the user may take; the API enforces them
+  regardless.
+- Personal information is returned only to callers with `members.view_personal_information`;
+  otherwise the field is `null`. Age is calculated from the date of birth and never stored.
+- **Account lifecycle:** deactivating a member ends all their sessions immediately. A member must be
+  deactivated before they can be deleted. Audit history is kept after deletion.
+- **Password setup for new members:** either a 3-day, single-use invitation link (recommended), or an
+  administrator-set password hashed by Identity. Passwords are never logged or returned.
+- **Profile photos:** JPEG or PNG only, checked by file signature rather than the declared type, up to 1 MB.
+  A photo can be chosen while creating a member; it is uploaded right after the account is created.
+- **CSV export** contains account fields only, and cells are protected against spreadsheet formula
+  injection.
+
+### API (Phase 2)
+| Method | Route | Permission |
+|---|---|---|
+| GET | `/api/roles?search=&status=&sort=&direction=&page=&pageSize=` | roles.view |
+| GET | `/api/roles/assignable` | members.access |
+| GET / POST / PUT / DELETE | `/api/roles/{id}` (`DELETE ?reassignToRoleId=`) | roles.view / .create / .edit / .delete |
+| GET / PUT | `/api/roles/{id}/permissions` | roles.view / roles.manage_permissions |
+| GET | `/api/roles/{id}/audit` | roles.view_audit |
+| GET | `/api/permissions` | roles.view |
+| GET | `/api/members?search=&roleId=&status=&sort=&direction=&page=&pageSize=` | members.view |
+| GET | `/api/members/export` | members.export |
+| GET / POST / PUT / DELETE | `/api/members/{id}` | view_details / create / per-field / delete |
+| POST | `/api/members/{id}/change-role` | members.change_role |
+| POST | `/api/members/{id}/status` | members.activate or members.deactivate |
+| POST | `/api/members/{id}/reset-password` | members.reset_password |
+| GET / PUT | `/api/members/{id}/permissions` | members.view_details / members.manage_permissions |
+| GET | `/api/members/{id}/audit` | members.view_audit |
+| GET / PUT / DELETE | `/api/members/{id}/photo` | view_details / edit_personal_information |
+
+### Database (migration `RolesAndMembers`)
+- **New tables:** `Permissions` (seeded), `RolePermissions` (primary key on role and permission, so
+  duplicates are impossible), `MemberPermissionOverrides` (unique per user and permission),
+  `MemberPersonalInformation`, `MemberProfilePhotos` and `AuditLogs`.
+- **New columns:** on `AspNetRoles` (Description, IsActive, IsSystem, created and updated timestamps,
+  CreatedBy) and on `AspNetUsers` (LastLoginAtUtc, CreatedByUserId).
+- **Existing data:** an existing Administrator role is marked as the system role.
+- **Nothing destructive:** applying the migration drops nothing. Drops appear only in its rollback (`Down`).
+
 ## Known limitations / next steps
 
 - SQL Server was not available in the build environment. The migration's SQL script was generated and reviewed, and the admin-provisioning logic is covered by tests on SQLite, but nothing has been run against a real SQL Server yet. Run the `TM_TEST_SQLSERVER` test above once against your server to confirm the migration end to end.
@@ -231,4 +344,7 @@ Development. Unhandled exceptions return generic Problem Details with no stack t
 - Behind a reverse proxy, configure `ForwardedHeaders` so per-IP rate limiting and logs see the real client address.
 - `forgot-password` takes slightly longer for existing accounts (token generation and email). Moving email delivery to a background queue would remove this timing signal.
 - Consider a breached-password check (for example k-anonymity Pwned Passwords), a Content-Security-Policy for the SPA, MFA, and an admin UI for unlocking and deactivating users (part of the Members module).
-- Persistent audit storage is not implemented; security events go to the configured logging provider.
+- Sign-in security events (login, logout, lockout) go to the logging provider. Role, permission and member administration is recorded in the `AuditLogs` table.
+- Effective permissions are resolved from the database on every request (a few small queries). If load requires it, add a short-lived cache that is invalidated on role, override and membership changes.
+- Profile photos are stored in the database (up to 1 MB each). Move them to blob storage if usage grows.
+- **Next phase:** Projects and Tasks. Mark their modules as implemented in `PermissionCatalog` and protect their endpoints with the existing `tasks.*` and `projects.*` keys. Add record-level rules (for example, project membership) in the resolver's step 4.

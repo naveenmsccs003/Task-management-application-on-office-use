@@ -9,8 +9,8 @@ const AUTH_ENDPOINTS_WITHOUT_SESSION = ['/api/auth/login', '/api/auth/me', '/api
 
 /**
  * Handles authentication failures (401) consistently: the session is gone, so clear local state
- * and return to the login page. Authorization failures (403) are left to the caller; the user is
- * still signed in but lacks permission. Requests are never retried.
+ * and return to the login page. Authorization failures (403) keep the session but refresh the cached
+ * permissions; the caller shows the error. Requests are never retried.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
@@ -28,6 +28,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         void router.navigate(['/login'], {
           queryParams: { returnUrl: router.url, reason: 'session-expired' },
         });
+      } else if (error instanceof HttpErrorResponse && error.status === 403 && auth.isAuthenticated()) {
+        // Permissions may have been revoked: refresh them so hidden tabs and buttons catch up.
+        void auth.refreshStatus();
       }
       return throwError(() => error);
     }),

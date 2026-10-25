@@ -1,0 +1,100 @@
+<div class="stagger">
+  <header class="page-header">
+    <span class="icon-tile tile-gradient"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
+    <div>
+      <h1 class="page-title">Roles &amp; Permissions</h1>
+      <p class="page-subtitle">Define roles and the default permissions their members receive.</p>
+    </div>
+    <div class="page-actions">
+      @if (auth.can(Perm.roles.create)) {
+        <a routerLink="/roles/new" class="btn btn-gradient" data-testid="create-role"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create role</a>
+      }
+    </div>
+  </header>
+
+  <section class="app-card overflow-hidden">
+    <div class="filter-bar">
+      <div class="input-icon">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" class="form-control" placeholder="Search roles…" aria-label="Search roles"
+               [ngModel]="query().search" (ngModelChange)="update({ search: $event })" data-testid="role-search" />
+      </div>
+      <select class="form-select" aria-label="Filter by status" [ngModel]="query().status" (ngModelChange)="update({ status: $event })">
+        <option value="">All statuses</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+      <select class="form-select" aria-label="Rows per page" [ngModel]="query().pageSize" (ngModelChange)="update({ pageSize: +$event })">
+        @for (size of [10, 25, 50]; track size) {
+          <option [ngValue]="size">{{ size }} per page</option>
+        }
+      </select>
+    </div>
+
+    @if (error(); as message) {
+      <div class="alert alert-danger border-danger m-3" role="alert"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><span>{{ message }}</span></div>
+    }
+
+    <div class="table-responsive">
+      <table class="table data-table" [attr.aria-busy]="loading()">
+        <thead>
+          <tr>
+            <th scope="col"><button type="button" class="sort-button" [class.active]="query().sort === 'name'" (click)="sortBy('name')">Role <i class="bi {{ sortIcon('name') }}" aria-hidden="true"></i></button></th>
+            <th scope="col" class="d-none d-lg-table-cell">Description</th>
+            <th scope="col"><button type="button" class="sort-button" [class.active]="query().sort === 'members'" (click)="sortBy('members')">Members <i class="bi {{ sortIcon('members') }}" aria-hidden="true"></i></button></th>
+            <th scope="col"><button type="button" class="sort-button" [class.active]="query().sort === 'status'" (click)="sortBy('status')">Status <i class="bi {{ sortIcon('status') }}" aria-hidden="true"></i></button></th>
+            <th scope="col" class="d-none d-md-table-cell"><button type="button" class="sort-button" [class.active]="query().sort === 'created'" (click)="sortBy('created')">Created <i class="bi {{ sortIcon('created') }}" aria-hidden="true"></i></button></th>
+            <th scope="col" class="d-none d-xl-table-cell">Created by</th>
+            <th scope="col" class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (role of result()?.items ?? []; track role.id) {
+            <tr data-testid="role-row">
+              <td>
+                <a [routerLink]="['/roles', role.id]" class="fw-semibold text-decoration-none text-body">{{ role.name }}</a>
+                @if (role.isSystem) { <span class="role-chip system ms-1"><i class="bi bi-lock-fill" aria-hidden="true"></i>System</span> }
+                <div class="fs-xs text-muted-app">{{ role.permissionCount }} permission(s)</div>
+              </td>
+              <td class="d-none d-lg-table-cell text-muted-app text-truncate" style="max-width: 18rem">{{ role.description || '—' }}</td>
+              <td><span class="fw-medium">{{ role.memberCount }}</span></td>
+              <td><span class="status-pill" [class.active]="role.isActive" [class.inactive]="!role.isActive">{{ role.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="d-none d-md-table-cell text-muted-app">{{ role.createdAtUtc | date: 'd MMM y' }}</td>
+              <td class="d-none d-xl-table-cell text-muted-app">{{ role.createdByName || 'System' }}</td>
+              <td class="text-end text-nowrap">
+                <a class="icon-btn" [routerLink]="['/roles', role.id]" title="View" aria-label="View {{ role.name }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                @if (auth.can(Perm.roles.edit)) {
+                  <a class="icon-btn" [routerLink]="['/roles', role.id, 'edit']" title="Edit" aria-label="Edit {{ role.name }}"><i class="bi bi-pencil" aria-hidden="true"></i></a>
+                }
+                <a class="icon-btn" [routerLink]="['/roles', role.id]" fragment="permissions" title="Configure permissions" aria-label="Configure permissions of {{ role.name }}"><i class="bi bi-sliders" aria-hidden="true"></i></a>
+                @if (auth.can(Perm.roles.edit) && !role.isSystem) {
+                  <button type="button" class="icon-btn" (click)="toggleStatus(role)" [title]="role.isActive ? 'Deactivate' : 'Activate'"
+                          [attr.aria-label]="(role.isActive ? 'Deactivate ' : 'Activate ') + role.name">
+                    <i class="bi" [class.bi-toggle-on]="role.isActive" [class.bi-toggle-off]="!role.isActive" aria-hidden="true"></i>
+                  </button>
+                }
+                @if (auth.can(Perm.roles.delete) && !role.isSystem) {
+                  <button type="button" class="icon-btn danger" (click)="deleting.set(role)" title="Delete" aria-label="Delete {{ role.name }}" data-testid="delete-role">
+                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                  </button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            @if (!loading()) {
+              <tr><td colspan="7"><div class="empty-state"><i class="bi bi-shield" aria-hidden="true"></i>No roles match your filters.</div></td></tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (result(); as r) {
+      <app-pagination [page]="r.page" [pageSize]="r.pageSize" [total]="r.totalCount" (pageChange)="query.update(q => ({ ...q, page: $event }))" />
+    }
+  </section>
+</div>
+
+@if (deleting(); as role) {
+  <app-delete-role-dialog [role]="role" (closed)="deleting.set(null)" (deleted)="onDeleted()" />
+}

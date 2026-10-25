@@ -1,10 +1,12 @@
+using System.Text.Json.Serialization;
 using TaskManagement.Api.Authentication;
 using TaskManagement.Api.Infrastructure;
 using TaskManagement.Api.Setup;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers(options => options.Filters.Add<ValidateAntiforgeryFilter>());
+builder.Services.AddControllers(options => options.Filters.Add<ValidateAntiforgeryFilter>())
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
@@ -16,6 +18,10 @@ var app = builder.Build();
 if (args.Length > 0 && args[0] == AdminSetupCommand.CommandName)
 {
     return await AdminSetupCommand.RunAsync(app.Services, args[1..]);
+}
+if (args.Length > 0 && args[0] == AdminSetupCommand.GrantCommandName)
+{
+    return await AdminSetupCommand.RunGrantAsync(app.Services, args[1..]);
 }
 
 app.UseExceptionHandler();

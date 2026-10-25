@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard } from './core/auth/auth.guard';
+import { authGuard, guestGuard, permissionGuard } from './core/auth/auth.guard';
+import { Perm } from './core/auth/permissions';
 
 const APP_NAME = 'Task Management System';
 
@@ -19,7 +20,7 @@ export const routes: Routes = [
   },
   {
     path: 'reset-password',
-    title: `Reset password | ${APP_NAME}`,
+    title: `Set password | ${APP_NAME}`,
     loadComponent: () =>
       import('./features/auth/reset-password/reset-password.component').then((m) => m.ResetPasswordComponent),
   },
@@ -39,6 +40,59 @@ export const routes: Routes = [
         title: `Change password | ${APP_NAME}`,
         loadComponent: () =>
           import('./features/auth/change-password/change-password.component').then((m) => m.ChangePasswordComponent),
+      },
+      {
+        path: 'members',
+        canActivate: [permissionGuard(Perm.members.view)],
+        title: `Members | ${APP_NAME}`,
+        loadComponent: () => import('./features/members/members-list.component').then((m) => m.MembersListComponent),
+      },
+      {
+        path: 'members/new',
+        canActivate: [permissionGuard(Perm.members.create)],
+        title: `Add member | ${APP_NAME}`,
+        loadComponent: () => import('./features/members/member-form.component').then((m) => m.MemberFormComponent),
+      },
+      {
+        path: 'members/:id',
+        canActivate: [permissionGuard(Perm.members.viewDetails)],
+        title: `Member | ${APP_NAME}`,
+        loadComponent: () => import('./features/members/member-detail.component').then((m) => m.MemberDetailComponent),
+      },
+      {
+        path: 'members/:id/edit',
+        canActivate: [permissionGuard(Perm.members.viewDetails)],
+        title: `Edit member | ${APP_NAME}`,
+        loadComponent: () => import('./features/members/member-form.component').then((m) => m.MemberFormComponent),
+      },
+      {
+        path: 'roles',
+        canActivate: [permissionGuard(Perm.roles.view)],
+        title: `Roles & Permissions | ${APP_NAME}`,
+        loadComponent: () => import('./features/roles/roles-list.component').then((m) => m.RolesListComponent),
+      },
+      {
+        path: 'roles/new',
+        canActivate: [permissionGuard(Perm.roles.create)],
+        title: `Create role | ${APP_NAME}`,
+        loadComponent: () => import('./features/roles/role-form.component').then((m) => m.RoleFormComponent),
+      },
+      {
+        path: 'roles/:id',
+        canActivate: [permissionGuard(Perm.roles.view)],
+        title: `Role | ${APP_NAME}`,
+        loadComponent: () => import('./features/roles/role-detail.component').then((m) => m.RoleDetailComponent),
+      },
+      {
+        path: 'roles/:id/edit',
+        canActivate: [permissionGuard(Perm.roles.edit)],
+        title: `Edit role | ${APP_NAME}`,
+        loadComponent: () => import('./features/roles/role-form.component').then((m) => m.RoleFormComponent),
+      },
+      {
+        path: 'forbidden',
+        title: `Access denied | ${APP_NAME}`,
+        loadComponent: () => import('./features/forbidden/forbidden.component').then((m) => m.ForbiddenComponent),
       },
     ],
   },

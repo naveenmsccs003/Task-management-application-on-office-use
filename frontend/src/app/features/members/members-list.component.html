@@ -1,0 +1,151 @@
+<div class="stagger">
+  <header class="page-header">
+    <span class="icon-tile tile-gradient"><i class="bi bi-people" aria-hidden="true"></i></span>
+    <div>
+      <h1 class="page-title">Members</h1>
+      <p class="page-subtitle">Manage member accounts, their roles and access.</p>
+    </div>
+    <div class="page-actions">
+      @if (auth.can(Perm.members.export)) {
+        <button type="button" class="btn btn-light border" (click)="exportCsv()" [disabled]="exporting()" data-testid="export-members">
+          <i class="bi bi-download me-1" aria-hidden="true"></i>Export CSV
+        </button>
+      }
+      @if (auth.can(Perm.members.create)) {
+        <a routerLink="/members/new" class="btn btn-gradient" data-testid="create-member"><i class="bi bi-person-plus me-1" aria-hidden="true"></i>Add member</a>
+      }
+    </div>
+  </header>
+
+  <section class="app-card overflow-hidden">
+    <div class="filter-bar">
+      <div class="input-icon">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" class="form-control" placeholder="Search by name, email or username…" aria-label="Search members"
+               [ngModel]="query().search" (ngModelChange)="update({ search: $event })" data-testid="member-search" />
+      </div>
+      <select class="form-select" aria-label="Filter by role" [ngModel]="query().roleId" (ngModelChange)="update({ roleId: $event })">
+        <option value="">All roles</option>
+        @for (role of roles(); track role.id) {
+          <option [value]="role.id">{{ role.name }}</option>
+        }
+      </select>
+      <select class="form-select" aria-label="Filter by status" [ngModel]="query().status" (ngModelChange)="update({ status: $event })">
+        <option value="">All statuses</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </div>
+
+    @if (error(); as message) {
+      <div class="alert alert-danger border-danger m-3" role="alert"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><span>{{ message }}</span></div>
+    }
+
+    <div class="table-responsive">
+      <table class="table data-table" [attr.aria-busy]="loading()">
+        <thead>
+          <tr>
+            <th scope="col" class="d-none d-xl-table-cell">Member ID</th>
+            <th scope="col"><button type="button" class="sort-button" [class.active]="query().sort === 'name'" (click)="sortBy('name')">Member <i class="bi {{ sortIcon('name') }}" aria-hidden="true"></i></button></th>
+            <th scope="col" class="d-none d-md-table-cell"><button type="button" class="sort-button" [class.active]="query().sort === 'email'" (click)="sortBy('email')">Email <i class="bi {{ sortIcon('email') }}" aria-hidden="true"></i></button></th>
+            <th scope="col"><button type="button" class="sort-button" [class.active]="query().sort === 'role'" (click)="sortBy('role')">Role <i class="bi {{ sortIcon('role') }}" aria-hidden="true"></i></button></th>
+            <th scope="col"><button type="button" class="sort-button" [class.active]="query().sort === 'status'" (click)="sortBy('status')">Status <i class="bi {{ sortIcon('status') }}" aria-hidden="true"></i></button></th>
+            <th scope="col" class="d-none d-lg-table-cell"><button type="button" class="sort-button" [class.active]="query().sort === 'created'" (click)="sortBy('created')">Created <i class="bi {{ sortIcon('created') }}" aria-hidden="true"></i></button></th>
+            <th scope="col" class="d-none d-xl-table-cell"><button type="button" class="sort-button" [class.active]="query().sort === 'lastlogin'" (click)="sortBy('lastlogin')">Last login <i class="bi {{ sortIcon('lastlogin') }}" aria-hidden="true"></i></button></th>
+            <th scope="col" class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (member of result()?.items ?? []; track member.id) {
+            <tr data-testid="member-row">
+              <td class="d-none d-xl-table-cell"><code class="member-id" [title]="member.id" data-testid="member-id">{{ shortId(member.id) }}</code></td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="avatar-sm" aria-hidden="true">
+                    @if (member.hasPhoto && auth.can(Perm.members.viewDetails)) {
+                      <img [src]="'/api/members/' + member.id + '/photo'" alt="" loading="lazy" />
+                    } @else { {{ initials(member.displayName) }} }
+                  </span>
+                  <div class="min-w-0">
+                    @if (auth.can(Perm.members.viewDetails)) {
+                      <a [routerLink]="['/members', member.id]" class="fw-semibold text-decoration-none text-body">{{ member.displayName }}</a>
+                    } @else {
+                      <span class="fw-semibold">{{ member.displayName }}</span>
+                    }
+                    <div class="fs-xs text-muted-app">&#64;{{ member.userName }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="d-none d-md-table-cell text-muted-app">{{ member.email }}</td>
+              <td>
+                @if (member.role; as role) {
+                  <span class="role-chip" [class.system]="role.isSystem" [class.muted]="!role.isActive">{{ role.name }}</span>
+                } @else { <span class="text-muted-app">—</span> }
+              </td>
+              <td>
+                @if (member.isLockedOut) {
+                  <span class="status-pill locked">Locked</span>
+                } @else {
+                  <span class="status-pill" [class.active]="member.isActive" [class.inactive]="!member.isActive">{{ member.isActive ? 'Active' : 'Inactive' }}</span>
+                }
+              </td>
+              <td class="d-none d-lg-table-cell text-muted-app">{{ member.createdAtUtc | date: 'd MMM y' }}</td>
+              <td class="d-none d-xl-table-cell text-muted-app">{{ member.lastLoginAtUtc ? (member.lastLoginAtUtc | date: 'd MMM y, HH:mm') : 'Never' }}</td>
+              <td class="text-end text-nowrap">
+                @if (auth.can(Perm.members.viewDetails)) {
+                  <a class="icon-btn" [routerLink]="['/members', member.id]" title="View" aria-label="View {{ member.displayName }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                  @if (auth.canAny(Perm.members.edit, Perm.members.changeEmail, Perm.members.editPersonal)) {
+                    <a class="icon-btn" [routerLink]="['/members', member.id, 'edit']" title="Edit" aria-label="Edit {{ member.displayName }}"><i class="bi bi-pencil" aria-hidden="true"></i></a>
+                  }
+                  @if (auth.can(Perm.members.managePermissions)) {
+                    <a class="icon-btn" [routerLink]="['/members', member.id]" fragment="permissions" title="Permissions" aria-label="Permissions of {{ member.displayName }}"><i class="bi bi-sliders" aria-hidden="true"></i></a>
+                  }
+                }
+                @if (hasAnyAction(member)) {
+                  @let allowed = actions.available(member);
+                  <div class="row-menu d-inline-block position-relative">
+                    <button type="button" class="icon-btn" title="More actions" [attr.aria-label]="'More actions for ' + member.displayName"
+                            aria-haspopup="menu" [attr.aria-expanded]="openMenu() === member.id" (click)="toggleMenu(member.id, $event)" data-testid="row-actions">
+                      <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                    </button>
+                    @if (openMenu() === member.id) {
+                      <div class="row-menu-panel" role="menu" [style.top.px]="menuPosition().top" [style.right.px]="menuPosition().right">
+                        @if (allowed.changeRole) {
+                          <button type="button" role="menuitem" (click)="run(member, 'role')"><i class="bi bi-person-badge" aria-hidden="true"></i>Change role</button>
+                        }
+                        @if (allowed.resetPassword) {
+                          <button type="button" role="menuitem" (click)="run(member, 'reset')"><i class="bi bi-key" aria-hidden="true"></i>Reset password</button>
+                        }
+                        @if (allowed.activate) {
+                          <button type="button" role="menuitem" (click)="run(member, 'activate')"><i class="bi bi-person-check" aria-hidden="true"></i>Activate</button>
+                        }
+                        @if (allowed.deactivate) {
+                          <button type="button" role="menuitem" (click)="run(member, 'deactivate')" data-testid="row-deactivate"><i class="bi bi-person-slash" aria-hidden="true"></i>Deactivate</button>
+                        }
+                        @if (allowed.delete) {
+                          <button type="button" role="menuitem" class="danger" (click)="run(member, 'delete')"><i class="bi bi-trash3" aria-hidden="true"></i>Delete</button>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </td>
+            </tr>
+          } @empty {
+            @if (!loading()) {
+              <tr><td colspan="8"><div class="empty-state"><i class="bi bi-person-x" aria-hidden="true"></i>No members match your filters.</div></td></tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (result(); as r) {
+      <app-pagination [page]="r.page" [pageSize]="r.pageSize" [total]="r.totalCount" (pageChange)="query.update(q => ({ ...q, page: $event }))" />
+    }
+  </section>
+</div>
+
+@if (changingRole(); as member) {
+  <app-change-role-dialog [member]="member" (closed)="changingRole.set(null)" (changed)="onRoleChanged()" />
+}

@@ -55,10 +55,18 @@ public sealed class ResetPasswordRequest
     [Required(ErrorMessage = "Please confirm the new password.")]
     [Compare(nameof(NewPassword), ErrorMessage = "The new password and confirmation do not match.")]
     public string ConfirmNewPassword { get; init; } = string.Empty;
+
+    /// <summary>True when the link came from a member invitation (first password) rather than a reset.</summary>
+    public bool IsInvitation { get; init; }
 }
 
-/// <summary>Approved profile fields only; never add hashes, stamps or tokens here.</summary>
-public sealed record CurrentUserResponse(Guid Id, string UserName, string? Email, string? DisplayName, IReadOnlyList<string> Roles);
+/// <summary>
+/// Approved profile fields only; never add hashes, stamps or tokens here. <see cref="Permissions"/> are the
+/// effective permission keys, used by the frontend only to shape navigation; the API re-checks every request.
+/// </summary>
+public sealed record CurrentUserResponse(
+    Guid Id, string UserName, string? Email, string? DisplayName, IReadOnlyList<string> Roles,
+    IReadOnlyList<string> Permissions, bool IsAdministrator);
 
 public sealed record AuthStatusResponse(bool IsAuthenticated, CurrentUserResponse? User);
 

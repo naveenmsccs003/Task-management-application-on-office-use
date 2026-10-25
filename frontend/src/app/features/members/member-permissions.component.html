@@ -1,0 +1,100 @@
+@if (error(); as message) {
+  <div class="alert alert-danger border-danger" role="alert"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><span>{{ message }}</span></div>
+}
+
+@if (data(); as d) {
+  <section class="app-card overflow-hidden">
+    <div class="p-3 border-bottom d-flex flex-wrap align-items-center gap-2">
+      <h2 class="section-title mb-0 me-auto"><i class="bi bi-person-lock" aria-hidden="true"></i>Member-specific permissions</h2>
+      <span class="badge rounded-pill text-bg-light border">{{ effectiveCount() }} effective</span>
+      <span class="badge rounded-pill text-bg-light border" data-testid="override-count">{{ overrideCount() }} override(s)</span>
+    </div>
+
+    @if (d.isAdministrator) {
+      <div class="alert alert-primary border-primary m-3"><i class="bi bi-shield-fill-check" aria-hidden="true"></i><span>This member is an Administrator and always has every permission. Overrides do not apply.</span></div>
+    } @else if (!d.isEditable) {
+      <div class="alert alert-secondary border-secondary m-3"><i class="bi bi-eye" aria-hidden="true"></i><span>Read-only. Role: <strong>{{ d.roleName ?? 'none' }}</strong>.</span></div>
+    } @else {
+      <p class="fs-xs text-muted-app px-3 pt-3 mb-0">
+        Defaults come from the <strong>{{ d.roleName ?? 'assigned' }}</strong> role. <em>Deny</em> always wins; <em>Allow</em> is available only for
+        permissions that may be granted individually and that you hold yourself.
+      </p>
+    }
+
+    <div class="filter-bar">
+      <div class="input-icon">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" class="form-control" placeholder="Search permissions…" aria-label="Search member permissions"
+               [ngModel]="search()" (ngModelChange)="search.set($event)" />
+      </div>
+      <select class="form-select" aria-label="Filter permissions" [ngModel]="filter()" (ngModelChange)="filter.set($event)" data-testid="override-filter">
+        <option value="all">All permissions</option>
+        <option value="overridden">Overridden only</option>
+        <option value="effective">Effective only</option>
+      </select>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table data-table">
+        <thead>
+          <tr>
+            <th scope="col">Permission</th>
+            <th scope="col" class="text-center">Role default</th>
+            <th scope="col">Member override</th>
+            <th scope="col">Effective result</th>
+          </tr>
+        </thead>
+        @for (group of visibleGroups(); track group.name) {
+          <tbody>
+            <tr class="group-row"><th colspan="4" scope="rowgroup" class="fs-xs text-uppercase text-muted-app bg-light">{{ group.name }}</th></tr>
+            @for (row of group.items; track row.permissionId) {
+              <tr [class.table-warning]="row.changed" [attr.data-key]="row.key">
+                <td>
+                  <div class="fw-medium">{{ row.displayName }}</div>
+                  <code class="fs-xs" style="color: #7c3aed">{{ row.key }}</code>
+                </td>
+                <td class="text-center">
+                  @if (row.roleDefault) {
+                    <i class="bi bi-check-circle-fill text-success" aria-label="Allowed by role"></i>
+                  } @else {
+                    <i class="bi bi-dash-circle text-muted" aria-label="Not granted by role"></i>
+                  }
+                </td>
+                <td>
+                  <div class="segmented" role="radiogroup" [attr.aria-label]="'Override for ' + row.displayName">
+                    @for (choice of ['Inherit', 'Allow', 'Deny']; track choice) {
+                      <input type="radio" [id]="'ov-' + row.permissionId + '-' + choice" [name]="'ov-' + row.permissionId"
+                             [checked]="row.choice === choice" (change)="setChoice(row, $any(choice))"
+                             [disabled]="!d.isEditable || (choice === 'Allow' && !canAllow(row))" />
+                      <label [for]="'ov-' + row.permissionId + '-' + choice" [class.allow]="choice === 'Allow'" [class.deny]="choice === 'Deny'"
+                             [title]="choice === 'Allow' && !row.allowMemberOverride ? 'Can only be granted through a role' : ''">{{ choice }}</label>
+                    }
+                  </div>
+                </td>
+                <td>
+                  <span class="status-pill" [class.active]="row.preview" [class.inactive]="!row.preview" data-testid="effective">{{ row.preview ? 'Allow' : 'Deny' }}</span>
+                  <div class="fs-xs text-muted-app mt-1">{{ row.previewSource }}</div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        } @empty {
+          <tbody><tr><td colspan="4"><div class="empty-state"><i class="bi bi-search" aria-hidden="true"></i>No permissions match.</div></td></tr></tbody>
+        }
+      </table>
+    </div>
+  </section>
+
+  @if (changes().length > 0) {
+    <div class="save-bar" role="region" aria-label="Unsaved override changes">
+      <i class="bi bi-pencil-square" aria-hidden="true"></i>
+      <span class="flex-grow-1 fs-sm">{{ changes().length }} unsaved change(s)</span>
+      <button type="button" class="btn btn-sm btn-light" (click)="reset()">Discard</button>
+      <button type="button" class="btn btn-sm btn-gradient" (click)="save()" [disabled]="saving()" data-testid="save-overrides">
+        @if (saving()) { <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> } Save overrides
+      </button>
+    </div>
+  }
+} @else if (!error()) {
+  <div class="text-center py-4"><span class="spinner-border spinner-border-sm" aria-label="Loading permissions"></span></div>
+}

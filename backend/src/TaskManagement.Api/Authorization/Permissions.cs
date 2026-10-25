@@ -4,9 +4,8 @@ using Microsoft.AspNetCore.Authorization;
 namespace TaskManagement.Api.Authorization;
 
 /// <summary>
-/// Marks an endpoint as requiring a permission key such as "tasks.create". The requirement is
-/// resolved per request by <see cref="IPermissionService"/>, so permissions can live in the database
-/// without registering a policy per key.
+/// Marks an endpoint as requiring a permission key such as "members.create". Every check is resolved per
+/// request by the central <see cref="IPermissionService"/>; multiple attributes must all be satisfied.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true)]
 public sealed class RequirePermissionAttribute(string permission) : AuthorizeAttribute, IAuthorizationRequirementData
@@ -18,17 +17,20 @@ public sealed class RequirePermissionAttribute(string permission) : AuthorizeAtt
 
 public sealed record PermissionRequirement(string Permission) : IAuthorizationRequirement;
 
-/// <summary>Answers whether a user holds a permission. The RBAC module will provide a database-backed implementation.</summary>
+/// <summary>Satisfied only by active members of the system Administrator role, checked against the database.</summary>
+public sealed class AdministratorRequirement : IAuthorizationRequirement;
+
+/// <summary>The single source of truth for effective permissions.</summary>
 public interface IPermissionService
 {
     Task<bool> HasPermissionAsync(Guid userId, string permission, CancellationToken cancellationToken = default);
-}
 
-/// <summary>Default until the RBAC module exists: no permission is granted to anyone, administrators included.</summary>
-public sealed class DenyAllPermissionService : IPermissionService
-{
-    public Task<bool> HasPermissionAsync(Guid userId, string permission, CancellationToken cancellationToken = default) =>
-        Task.FromResult(false);
+    Task<IReadOnlySet<string>> GetEffectivePermissionsAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<bool> IsAdministratorAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Forgets per-request results after a change that affects permissions.</summary>
+    void Invalidate();
 }
 
 public sealed class PermissionAuthorizationHandler(IPermissionService permissions) : AuthorizationHandler<PermissionRequirement>
@@ -37,6 +39,18 @@ public sealed class PermissionAuthorizationHandler(IPermissionService permission
     {
         if (Guid.TryParse(context.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)
             && await permissions.HasPermissionAsync(userId, requirement.Permission))
+        {
+            context.Succeed(requirement);
+        }
+    }
+}
+
+public sealed class AdministratorAuthorizationHandler(IPermissionService permissions) : AuthorizationHandler<AdministratorRequirement>
+{
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, AdministratorRequirement requirement)
+    {
+        if (Guid.TryParse(context.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)
+            && await permissions.IsAdministratorAsync(userId))
         {
             context.Succeed(requirement);
         }

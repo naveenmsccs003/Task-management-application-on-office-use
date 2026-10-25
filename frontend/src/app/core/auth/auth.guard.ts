@@ -20,3 +20,19 @@ export const guestGuard: CanActivateFn = async () => {
   const user = await auth.ensureStatusLoaded();
   return user ? router.createUrlTree(['/']) : true;
 };
+
+/**
+ * Requires all listed permissions. Re-reads the status from the server first so a revoked permission is
+ * never honoured from stale client state. Navigation UX only; the API enforces the same checks.
+ */
+export function permissionGuard(...permissions: string[]): CanActivateFn {
+  return async () => {
+    const auth = inject(AuthService);
+    const router = inject(Router);
+    const user = await auth.refreshStatus();
+    if (!user) {
+      return router.createUrlTree(['/login']);
+    }
+    return permissions.every((p) => auth.can(p)) ? true : router.createUrlTree(['/forbidden']);
+  };
+}

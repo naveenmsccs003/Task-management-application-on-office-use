@@ -5,6 +5,9 @@ export interface CurrentUser {
   email: string | null;
   displayName: string | null;
   roles: string[];
+  /** Effective permission keys. Used only to shape the UI; the API re-checks every request. */
+  permissions: string[];
+  isAdministrator: boolean;
 }
 
 export interface AuthStatus {
@@ -33,6 +36,7 @@ export interface ResetPasswordRequest {
   token: string;
   newPassword: string;
   confirmNewPassword: string;
+  isInvitation?: boolean;
 }
 
 export interface MessageResponse {

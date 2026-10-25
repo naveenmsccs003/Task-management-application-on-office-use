@@ -18,4 +18,8 @@ public class ApplicationUser : IdentityUser<Guid>
     public DateTime CreatedAtUtc { get; set; }
 
     public DateTime UpdatedAtUtc { get; set; }
+
+    public DateTime? LastLoginAtUtc { get; set; }
+
+    public Guid? CreatedByUserId { get; set; }
 }

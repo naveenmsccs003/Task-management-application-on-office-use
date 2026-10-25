@@ -12,6 +12,7 @@ namespace TaskManagement.Api.Setup;
 public static class AdminSetupCommand
 {
     public const string CommandName = "seed-admin";
+    public const string GrantCommandName = "grant-admin";
     public const string PasswordEnvironmentVariable = "TM_ADMIN_PASSWORD";
 
     public static async Task<int> RunAsync(IServiceProvider services, string[] args)
@@ -63,6 +64,40 @@ public static class AdminSetupCommand
         }
 
         Console.WriteLine($"Administrator '{userName}' created (id {result.User!.Id}).");
+        return 0;
+    }
+
+    /// <summary>
+    /// Recovery: <c>grant-admin --email user@example.com</c> restores administrator access to an existing account,
+    /// only when no active administrator exists.
+    /// </summary>
+    public static async Task<int> RunGrantAsync(IServiceProvider services, string[] args)
+    {
+        var email = GetOption(args, "--email");
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            Console.Error.WriteLine($"Usage: {GrantCommandName} --email <address>");
+            return 2;
+        }
+
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        if ((await db.Database.GetPendingMigrationsAsync()).Any())
+        {
+            Console.Error.WriteLine("The database has pending migrations. Apply them first (dotnet ef database update).");
+            return 1;
+        }
+
+        var result = await scope.ServiceProvider.GetRequiredService<AdminProvisioner>().GrantAdministratorAsync(email);
+        foreach (var error in result.Errors)
+        {
+            Console.Error.WriteLine(error);
+        }
+        if (!result.Succeeded)
+        {
+            return 1;
+        }
+        Console.WriteLine($"Administrator access restored for '{result.User!.UserName}'.");
         return 0;
     }
 

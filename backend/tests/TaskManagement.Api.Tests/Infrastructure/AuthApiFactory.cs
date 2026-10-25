@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using TaskManagement.Api.Authentication;
 using TaskManagement.Api.Authorization;
 using TaskManagement.Api.Data;
+using TaskManagement.Api.Email;
 
 namespace TaskManagement.Api.Tests.Infrastructure;
 
@@ -44,6 +45,8 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
             services.RemoveAll<IEmailSender<ApplicationUser>>();
             services.AddSingleton<IEmailSender<ApplicationUser>>(Emails);
+            services.RemoveAll<IMemberEmailSender>();
+            services.AddSingleton<IMemberEmailSender>(Emails);
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Clock);
 
@@ -77,7 +80,7 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await using var scope = Services.CreateAsyncScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
         var user = new ApplicationUser
         {
             UserName = userName,
@@ -90,7 +93,7 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             if (!await roleManager.RoleExistsAsync(role))
             {
-                AssertSucceeded(await roleManager.CreateAsync(new IdentityRole<Guid>(role)));
+                AssertSucceeded(await roleManager.CreateAsync(new ApplicationRole(role) { IsSystem = role == AppRoles.Administrator }));
             }
             AssertSucceeded(await users.AddToRoleAsync(user, role));
         }
@@ -100,11 +103,40 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public Task<ApplicationUser> CreateAdministratorAsync(string userName = "admin") =>
         CreateUserAsync(userName, roles: AppRoles.Administrator);
 
+    /// <summary>Creates a role granting the given permission keys (tab access must be listed explicitly).</summary>
+    public async Task<ApplicationRole> CreateRoleAsync(string name, params string[] permissionKeys)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var role = new ApplicationRole(name);
+        AssertSucceeded(await roleManager.CreateAsync(role));
+        var ids = await db.Permissions.Where(p => permissionKeys.Contains(p.Key)).Select(p => p.Id).ToListAsync();
+        Assert.Equal(permissionKeys.Distinct().Count(), ids.Count);
+        db.RolePermissions.AddRange(ids.Select(id => new RolePermission { RoleId = role.Id, PermissionId = id }));
+        await db.SaveChangesAsync();
+        return role;
+    }
+
+    /// <summary>Creates a user holding a new role with exactly the given permissions.</summary>
+    public async Task<ApplicationUser> CreateUserWithPermissionsAsync(string userName, params string[] permissionKeys)
+    {
+        var role = await CreateRoleAsync($"{userName}-role", permissionKeys);
+        return await CreateUserAsync(userName, roles: role.Name!);
+    }
+
     public async Task<T> WithDbAsync<T>(Func<ApplicationDbContext, Task<T>> action)
     {
         await using var scope = Services.CreateAsyncScope();
         return await action(scope.ServiceProvider.GetRequiredService<ApplicationDbContext>());
     }
+
+    public Task<int> PermissionIdAsync(string key) =>
+        WithDbAsync(db => db.Permissions.Where(p => p.Key == key).Select(p => p.Id).SingleAsync());
+
+    /// <summary>Logs in a fresh client as the given user.</summary>
+    public async Task<ApiClient> LoginAsync(string userName, string password = DefaultPassword) =>
+        await (await CreateApiClientAsync()).LoggedInAsync(userName, password);
 
     public async Task<ApiClient> CreateApiClientAsync()
     {

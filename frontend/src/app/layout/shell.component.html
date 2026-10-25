@@ -5,9 +5,16 @@
       <span class="brand-name text-body d-none d-sm-inline">Task Management System</span>
     </a>
 
-    <a class="nav-pill d-none d-md-inline-flex" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
-      <i class="bi bi-house" aria-hidden="true"></i>Home
-    </a>
+    <div class="main-nav d-none d-md-flex" data-testid="main-nav">
+      <a class="nav-pill" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+        <i class="bi bi-house" aria-hidden="true"></i>Home
+      </a>
+      @for (tab of tabs(); track tab.path) {
+        <a class="nav-pill" [routerLink]="tab.path" routerLinkActive="active" [attr.data-testid]="'nav-' + tab.path.slice(1)">
+          <i class="bi {{ tab.icon }}" aria-hidden="true"></i>{{ tab.label }}
+        </a>
+      }
+    </div>
 
     <div class="user-menu position-relative">
       <button
@@ -36,6 +43,11 @@
           <a class="menu-item" role="menuitem" routerLink="/" (click)="menuOpen.set(false)">
             <i class="bi bi-house" aria-hidden="true"></i>Home
           </a>
+          @for (tab of tabs(); track tab.path) {
+            <a class="menu-item d-md-none" role="menuitem" [routerLink]="tab.path" (click)="menuOpen.set(false)">
+              <i class="bi {{ tab.icon }}" aria-hidden="true"></i>{{ tab.label }}
+            </a>
+          }
           <a class="menu-item" role="menuitem" routerLink="/account/change-password" (click)="menuOpen.set(false)">
             <i class="bi bi-key" aria-hidden="true"></i>Change password
           </a>

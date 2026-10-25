@@ -63,10 +63,21 @@ describe('ResetPasswordComponent', () => {
       token: 't1',
       newPassword: 'a long enough passphrase',
       confirmNewPassword: 'a long enough passphrase',
+      isInvitation: false,
     });
     request.flush({ errors: { token: ['The password reset link is invalid or has expired.'] } }, { status: 400, statusText: 'Bad Request' });
     await harness.fixture.whenStable();
 
     expect(element().querySelector('[data-testid=reset-link-invalid]')).toBeTruthy();
+  });
+
+  it('uses invitation mode for invite links', async () => {
+    await harness.navigateByUrl('/reset-password?uid=u1&token=t1&invite=1', ResetPasswordComponent);
+
+    expect(element().querySelector('h1')?.textContent).toContain('Set your password');
+    await fill('a long enough passphrase', 'a long enough passphrase');
+    const request = http.expectOne('/api/auth/reset-password');
+    expect(request.request.body.isInvitation).toBe(true);
+    request.flush(null, { status: 204, statusText: 'No Content' });
   });
 });

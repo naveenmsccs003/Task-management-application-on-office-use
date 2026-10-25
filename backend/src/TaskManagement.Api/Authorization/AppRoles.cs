@@ -1,8 +1,8 @@
 namespace TaskManagement.Api.Authorization;
 
-/// <summary>Identity roles assigned through trusted processes (setup command, future role management).</summary>
 public static class AppRoles
 {
+    /// <summary>The protected system role. Created by the setup command; holds every active permission.</summary>
     public const string Administrator = "Administrator";
 }
 

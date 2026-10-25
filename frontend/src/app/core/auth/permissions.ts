@@ -1,0 +1,30 @@
+/** Mirrors backend PermissionKeys. Keys are stable identifiers; display names come from the API. */
+export const Perm = {
+  members: {
+    access: 'members.access',
+    view: 'members.view',
+    viewDetails: 'members.view_details',
+    create: 'members.create',
+    edit: 'members.edit',
+    changeEmail: 'members.change_email',
+    delete: 'members.delete',
+    activate: 'members.activate',
+    deactivate: 'members.deactivate',
+    changeRole: 'members.change_role',
+    resetPassword: 'members.reset_password',
+    viewPersonal: 'members.view_personal_information',
+    editPersonal: 'members.edit_personal_information',
+    export: 'members.export',
+    managePermissions: 'members.manage_permissions',
+    viewAudit: 'members.view_audit',
+  },
+  roles: {
+    access: 'roles.access',
+    view: 'roles.view',
+    create: 'roles.create',
+    edit: 'roles.edit',
+    delete: 'roles.delete',
+    managePermissions: 'roles.manage_permissions',
+    viewAudit: 'roles.view_audit',
+  },
+} as const;

@@ -1,0 +1,83 @@
+<div class="matrix-toolbar">
+  <div class="input-icon flex-grow-1">
+    <i class="bi bi-search" aria-hidden="true"></i>
+    <input type="search" class="form-control" placeholder="Search permissions…" aria-label="Search permissions"
+           [ngModel]="search()" (ngModelChange)="search.set($event)" data-testid="permission-search" />
+  </div>
+  <span class="count-badge" data-testid="selected-count"><strong>{{ selectedCount() }}</strong> of {{ totalCount() }} selected</span>
+  <div class="d-flex flex-wrap gap-1">
+    @if (editable()) {
+      <button type="button" class="btn btn-sm btn-soft" (click)="setAll(true)" data-testid="select-all"><i class="bi bi-check2-all me-1" aria-hidden="true"></i>Select all</button>
+      <button type="button" class="btn btn-sm btn-light border" (click)="setAll(false)" data-testid="clear-all">Clear all</button>
+    }
+    <button type="button" class="btn btn-sm btn-light border" (click)="setExpandedAll(true)" title="Expand all" aria-label="Expand all modules"><i class="bi bi-arrows-expand" aria-hidden="true"></i></button>
+    <button type="button" class="btn btn-sm btn-light border" (click)="setExpandedAll(false)" title="Collapse all" aria-label="Collapse all modules"><i class="bi bi-arrows-collapse" aria-hidden="true"></i></button>
+  </div>
+</div>
+
+@if (isSystem()) {
+  <div class="alert alert-primary border-primary"><i class="bi bi-lock-fill" aria-hidden="true"></i><span>The Administrator role always has every available permission. It cannot be changed, so administrator access can never be lost by accident.</span></div>
+} @else if (!editable()) {
+  <div class="alert alert-secondary border-secondary"><i class="bi bi-eye" aria-hidden="true"></i><span>Read-only: you can view this role's permissions but not change them.</span></div>
+}
+
+<div class="modules">
+  @for (module of visibleModules(); track module.key) {
+    <section class="module-card" [class.unavailable]="!module.isImplemented" [attr.data-module]="module.key">
+      <header class="module-header">
+        <button type="button" class="module-toggle" (click)="toggleExpanded(module.key)" [attr.aria-expanded]="expanded().has(module.key) || !!search()"
+                [attr.aria-controls]="'module-' + module.key">
+          <i class="bi bi-chevron-right chevron" [class.open]="expanded().has(module.key) || !!search()" aria-hidden="true"></i>
+          <span class="module-icon"><i class="bi {{ module.icon }}" aria-hidden="true"></i></span>
+          <span class="fw-semibold">{{ module.name }}</span>
+        </button>
+        @if (module.isImplemented) {
+          <span class="fs-xs text-muted-app">{{ moduleSelectedCount(module) }} selected</span>
+          @if (editable()) {
+            <div class="ms-auto d-flex gap-1">
+              <button type="button" class="btn btn-link btn-sm p-0 fs-xs" (click)="setModule(module, true)" [disabled]="moduleState(module) === 'all'">Select all</button>
+              <span class="text-muted-app">·</span>
+              <button type="button" class="btn btn-link btn-sm p-0 fs-xs text-muted-app" (click)="setModule(module, false)" [disabled]="moduleState(module) === 'none'">Clear</button>
+            </div>
+          }
+        } @else {
+          <span class="badge soon ms-auto"><i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>Coming soon</span>
+        }
+      </header>
+
+      @if (expanded().has(module.key) || search()) {
+        <ul class="permission-list" [id]="'module-' + module.key">
+          @for (permission of module.permissions; track permission.id) {
+            <li [class.child]="permission.parentPermissionId !== null">
+              <input type="checkbox" class="form-check-input" [id]="'perm-' + permission.id"
+                     [checked]="selected().has(permission.id) || isSystem()"
+                     [disabled]="!editable() || !permission.isActive"
+                     (change)="toggle(module, permission.id, $any($event.target).checked)" />
+              <label [for]="'perm-' + permission.id" class="flex-grow-1">
+                <span class="perm-name">{{ permission.displayName }}</span>
+                @if (!permission.allowMemberOverride) {
+                  <span class="badge role-only" title="Can only be granted through a role, not as an individual override">Role only</span>
+                }
+                <span class="perm-desc">{{ permission.description }}</span>
+              </label>
+              <code class="perm-key d-none d-md-inline">{{ permission.key }}</code>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  } @empty {
+    <div class="empty-state"><i class="bi bi-search" aria-hidden="true"></i>No permissions match "{{ search() }}".</div>
+  }
+</div>
+
+@if (dirty()) {
+  <div class="save-bar" role="region" aria-label="Unsaved permission changes">
+    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+    <span class="flex-grow-1 fs-sm">Unsaved changes: <strong>+{{ diff().added.length }}</strong> / <strong>−{{ diff().removed.length }}</strong></span>
+    <button type="button" class="btn btn-sm btn-light" (click)="reset()">Discard</button>
+    <button type="button" class="btn btn-sm btn-gradient" (click)="save()" [disabled]="saving()" data-testid="save-permissions">
+      @if (saving()) { <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> } Save permissions
+    </button>
+  </div>
+}
