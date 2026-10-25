@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { ChangePasswordComponent } from './change-password.component';
 
 describe('ChangePasswordComponent', () => {
@@ -9,7 +10,7 @@ describe('ChangePasswordComponent', () => {
   let element: HTMLElement;
 
   beforeEach(async () => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({ providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] });
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(ChangePasswordComponent);
     element = fixture.nativeElement;
@@ -41,7 +42,7 @@ describe('ChangePasswordComponent', () => {
   it('shows a success message and clears the form', async () => {
     await fillAndSubmit('old passphrase', 'a brand new passphrase', 'a brand new passphrase');
 
-    const button = element.querySelector('button[type=submit]') as HTMLButtonElement;
+    const button = element.querySelector('[data-testid=change-password-submit]') as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     http.expectOne('/api/auth/change-password').flush(null, { status: 204, statusText: 'No Content' });
     await fixture.whenStable();
@@ -61,5 +62,25 @@ describe('ChangePasswordComponent', () => {
 
     expect(element.textContent).toContain('The current password is incorrect.');
     expect(element.querySelector('#currentPassword')!.classList).toContain('is-invalid');
+  });
+
+  it('updates the requirement checklist and strength meter as the user types', async () => {
+    const input = element.querySelector('#newPassword') as HTMLInputElement;
+    input.value = 'Correct-Horse-Battery-9';
+    input.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+
+    const items = Array.from(element.querySelectorAll('[data-testid=requirements] li'));
+    expect(items[0].classList).toContain('met');
+    expect(element.textContent).toContain('Strength: Strong');
+  });
+
+  it('toggles visibility of each password field independently', async () => {
+    const toggle = element.querySelector('[aria-controls=newPassword]') as HTMLButtonElement;
+    toggle.click();
+    await fixture.whenStable();
+
+    expect((element.querySelector('#newPassword') as HTMLInputElement).type).toBe('text');
+    expect((element.querySelector('#currentPassword') as HTMLInputElement).type).toBe('password');
   });
 });

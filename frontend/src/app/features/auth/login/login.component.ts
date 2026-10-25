@@ -7,6 +7,7 @@ import { PASSWORD_MAX_LENGTH } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { safeReturnUrl } from '../../../core/auth/return-url';
 import { toApiError } from '../../../core/http/api-error';
+import { AuthBrandComponent } from '../auth-brand/auth-brand.component';
 
 const NOTICES: Record<string, string> = {
   'session-expired': 'Your session has expired. Please sign in again.',
@@ -16,9 +17,8 @@ const NOTICES: Record<string, string> = {
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, AuthBrandComponent],
   templateUrl: './login.component.html',
-  styleUrl: '../auth-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoginComponent {

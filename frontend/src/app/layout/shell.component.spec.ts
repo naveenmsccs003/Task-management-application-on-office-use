@@ -20,7 +20,11 @@ describe('ShellComponent', () => {
     const element: HTMLElement = fixture.nativeElement;
     expect(element.querySelector('[data-testid=current-user]')?.textContent).toContain('Alice');
 
-    (Array.from(element.querySelectorAll('button')).find((b) => b.textContent?.includes('Sign out')) as HTMLButtonElement).click();
+    expect(element.querySelector('[data-testid=sign-out]')).toBeNull();
+    (element.querySelector('[data-testid=user-menu-toggle]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(element.querySelector('[data-testid=user-menu-toggle]')!.getAttribute('aria-expanded')).toBe('true');
+    (element.querySelector('[data-testid=sign-out]') as HTMLButtonElement).click();
     http.expectOne('/api/auth/logout').flush(null, { status: 204, statusText: 'No Content' });
     await fixture.whenStable();
 

@@ -51,7 +51,8 @@ describe('LoginComponent', () => {
   it('renders the application name, labelled fields and the forgot-password link', async () => {
     await open();
 
-    expect(query('h1').textContent).toContain('Task Management System');
+    expect(element.textContent).toContain('Task Management System');
+    expect(query('h1').textContent).toContain('Welcome back');
     expect(query('label[for=userNameOrEmail]').textContent).toContain('Username or email');
     expect(query<HTMLInputElement>('#password').type).toBe('password');
     expect(query<HTMLInputElement>('#password').autocomplete).toBe('current-password');
@@ -150,11 +151,12 @@ describe('LoginComponent', () => {
     expect(element.textContent).toContain('Your session has expired. Please sign in again.');
   });
 
-  it('uses a responsive, centered card layout', async () => {
+  it('uses the responsive split layout with a brand panel hidden on small screens', async () => {
     await open();
 
-    expect(query('.container')).toBeTruthy();
-    expect(query('.auth-card').classList).toContain('mx-auto');
-    expect(query('.card-body').className).toContain('p-sm-5');
+    expect(query('.auth-layout')).toBeTruthy();
+    expect(query('.auth-form-wrap')).toBeTruthy();
+    expect(query('app-auth-brand').className).toContain('d-none d-lg-flex');
+    expect(query('app-auth-brand').getAttribute('aria-hidden')).toBe('true');
   });
 });

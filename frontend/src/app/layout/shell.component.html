@@ -1,19 +1,54 @@
-<header>
-  <nav class="navbar navbar-expand bg-primary" data-bs-theme="dark" aria-label="Main navigation">
-    <div class="container flex-wrap gap-2">
-      <a class="navbar-brand fw-semibold" routerLink="/">Task Management System</a>
-      <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
-        <span class="navbar-text text-white text-truncate" data-testid="current-user">{{ displayName() }}</span>
-        <a class="btn btn-sm btn-outline-light" routerLink="/account/change-password" routerLinkActive="active">
-          Change password
-        </a>
-        <button type="button" class="btn btn-sm btn-light" (click)="logout()" [disabled]="signingOut()">
-          Sign out
-        </button>
-      </div>
+<header class="app-header">
+  <nav class="container-xl d-flex align-items-center gap-3" aria-label="Main navigation">
+    <a class="d-flex align-items-center gap-2 text-decoration-none me-auto" routerLink="/">
+      <span class="brand-mark"><i class="bi bi-check2-square" aria-hidden="true"></i></span>
+      <span class="brand-name text-body d-none d-sm-inline">Task Management System</span>
+    </a>
+
+    <a class="nav-pill d-none d-md-inline-flex" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+      <i class="bi bi-house" aria-hidden="true"></i>Home
+    </a>
+
+    <div class="user-menu position-relative">
+      <button
+        type="button"
+        class="user-trigger"
+        data-testid="user-menu-toggle"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="menuOpen()"
+        aria-controls="userMenu"
+        (click)="toggleMenu()"
+      >
+        <span class="avatar" aria-hidden="true">{{ initials() }}</span>
+        <span class="d-none d-sm-inline fw-medium text-truncate user-name" data-testid="current-user">{{ displayName() }}</span>
+        <i class="bi bi-chevron-down chevron" [class.open]="menuOpen()" aria-hidden="true"></i>
+      </button>
+
+      @if (menuOpen()) {
+        <div id="userMenu" class="menu-panel" role="menu">
+          <div class="menu-header">
+            <span class="avatar avatar-lg" aria-hidden="true">{{ initials() }}</span>
+            <div class="min-w-0">
+              <div class="fw-semibold text-truncate">{{ displayName() }}</div>
+              <div class="fs-xs text-muted-app text-truncate">{{ user()?.email }}</div>
+            </div>
+          </div>
+          <a class="menu-item" role="menuitem" routerLink="/" (click)="menuOpen.set(false)">
+            <i class="bi bi-house" aria-hidden="true"></i>Home
+          </a>
+          <a class="menu-item" role="menuitem" routerLink="/account/change-password" (click)="menuOpen.set(false)">
+            <i class="bi bi-key" aria-hidden="true"></i>Change password
+          </a>
+          <div class="menu-divider"></div>
+          <button type="button" class="menu-item text-danger" role="menuitem" data-testid="sign-out" (click)="logout()" [disabled]="signingOut()">
+            <i class="bi bi-box-arrow-right" aria-hidden="true"></i>Sign out
+          </button>
+        </div>
+      }
     </div>
   </nav>
 </header>
-<main class="container py-4">
+
+<main class="container-xl py-4 py-lg-5">
   <router-outlet />
 </main>

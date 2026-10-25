@@ -1,0 +1,83 @@
+<div class="stagger">
+  <section class="hero mb-4">
+    <div class="hero-shape shape-1"></div>
+    <div class="hero-shape shape-2"></div>
+    <div class="position-relative">
+      <div class="hero-date"><i class="bi bi-calendar3 me-2" aria-hidden="true"></i>{{ today | date: 'EEEE, d MMMM y' }}</div>
+      <h1 class="hero-title">{{ greeting }}{{ name() ? ', ' + name() : '' }}</h1>
+      <p class="hero-text mb-0">You are signed in to the Task Management System. Your workspace modules will appear here as they launch.</p>
+    </div>
+  </section>
+
+  <div class="row g-4">
+    <div class="col-12 col-lg-4">
+      <section class="app-card h-100 p-4">
+        <h2 class="card-heading"><i class="bi bi-person-badge" aria-hidden="true"></i>Your account</h2>
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <span class="avatar-xl" aria-hidden="true">{{ initials() }}</span>
+          <div class="min-w-0">
+            <div class="fw-semibold fs-6 text-truncate">{{ name() }}</div>
+            <div class="fs-sm text-muted-app text-truncate">&#64;{{ account()?.userName }}</div>
+          </div>
+        </div>
+        <dl class="detail-list mb-0">
+          <div><dt><i class="bi bi-envelope" aria-hidden="true"></i>Email</dt><dd class="text-truncate">{{ account()?.email || '—' }}</dd></div>
+          <div>
+            <dt><i class="bi bi-person-gear" aria-hidden="true"></i>Role</dt>
+            <dd>
+              @for (role of account()?.roles ?? []; track role) {
+                <span class="badge role-badge me-1">{{ role }}</span>
+              } @empty {
+                <span class="badge role-badge muted">Member</span>
+              }
+            </dd>
+          </div>
+        </dl>
+      </section>
+    </div>
+
+    <div class="col-12 col-md-6 col-lg-4">
+      <section class="app-card h-100 p-4">
+        <h2 class="card-heading"><i class="bi bi-lightning-charge" aria-hidden="true"></i>Quick actions</h2>
+        <a routerLink="/account/change-password" class="action-link" data-testid="home-change-password">
+          <span class="icon-tile"><i class="bi bi-key" aria-hidden="true"></i></span>
+          <span class="flex-grow-1">
+            <span class="d-block fw-semibold">Change password</span>
+            <span class="d-block fs-xs text-muted-app">Update the password you use to sign in</span>
+          </span>
+          <i class="bi bi-chevron-right text-muted-app" aria-hidden="true"></i>
+        </a>
+      </section>
+    </div>
+
+    <div class="col-12 col-md-6 col-lg-4">
+      <section class="app-card h-100 p-4">
+        <h2 class="card-heading"><i class="bi bi-shield-check" aria-hidden="true"></i>Security tips</h2>
+        <ul class="tips list-unstyled mb-0">
+          <li><i class="bi bi-check-circle-fill" aria-hidden="true"></i>Use a passphrase of 12 or more characters.</li>
+          <li><i class="bi bi-check-circle-fill" aria-hidden="true"></i>Sign out when using a shared computer.</li>
+          <li><i class="bi bi-check-circle-fill" aria-hidden="true"></i>Changing your password signs out your other devices.</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="col-12">
+      <section class="app-card p-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+          <h2 class="card-heading mb-0"><i class="bi bi-grid" aria-hidden="true"></i>Workspace modules</h2>
+          <span class="badge soon-badge"><i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>Coming soon</span>
+        </div>
+        <div class="row g-3">
+          @for (module of upcoming; track module.name) {
+            <div class="col-6 col-md-4 col-xl-2">
+              <div class="module-tile" aria-disabled="true">
+                <i class="bi {{ module.icon }}" aria-hidden="true"></i>
+                <span>{{ module.name }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+    </div>
+  </div>
+</div>

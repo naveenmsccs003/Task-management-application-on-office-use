@@ -1,0 +1,30 @@
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+<div class="grid-overlay"></div>
+
+<div class="content">
+  <div class="d-flex align-items-center gap-2">
+    <span class="mark"><i class="bi bi-check2-square"></i></span>
+    <span class="fw-semibold">Task Management System</span>
+  </div>
+
+  <div class="hero stagger">
+    <span class="pill"><i class="bi bi-stars me-1"></i>Your team's workspace</span>
+    <h2 class="headline">Plan, track and deliver work — together.</h2>
+    <p class="lead-text">Everything your office needs to keep projects moving, in one secure place.</p>
+    <ul class="features list-unstyled">
+      @for (feature of features; track feature.title) {
+        <li>
+          <span class="feature-icon"><i class="bi {{ feature.icon }}"></i></span>
+          <div>
+            <div class="feature-title">{{ feature.title }}</div>
+            <div class="feature-text">{{ feature.text }}</div>
+          </div>
+        </li>
+      }
+    </ul>
+  </div>
+
+  <div class="footer">© {{ year }} Task Management System</div>
+</div>

@@ -1,25 +1,38 @@
-<main class="auth-page d-flex align-items-center bg-body-tertiary py-4">
-  <div class="container">
-    <div class="auth-card card shadow-sm border-0 mx-auto">
-      <div class="card-body p-4 p-sm-5">
-        <h1 class="h3 text-center mb-1">Task Management System</h1>
-        <p class="text-center text-body-secondary mb-4">Sign in to your account</p>
+<main class="auth-layout">
+  <app-auth-brand />
 
-        @if (notice(); as message) {
-          <div class="alert alert-info" role="status">{{ message }}</div>
-        }
-        @if (error(); as message) {
-          <div class="alert alert-danger" role="alert" data-testid="login-error">{{ message }}</div>
-        }
+  <section class="auth-panel">
+    <div class="auth-form-wrap animate-in">
+      <div class="auth-mobile-brand d-flex align-items-center gap-2">
+        <span class="brand-mark"><i class="bi bi-check2-square" aria-hidden="true"></i></span>
+        <span class="brand-name">Task Management System</span>
+      </div>
 
-        <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="submitting()">
-          <div class="mb-3">
-            <label for="userNameOrEmail" class="form-label">Username or email</label>
+      <h1 class="auth-title">Welcome back</h1>
+      <p class="auth-subtitle fs-sm">Sign in to continue to your workspace.</p>
+
+      @if (notice(); as message) {
+        <div class="alert alert-primary border-primary" role="status">
+          <i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>{{ message }}</span>
+        </div>
+      }
+      @if (error(); as message) {
+        <div class="alert alert-danger border-danger" role="alert" data-testid="login-error">
+          <i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i><span>{{ message }}</span>
+        </div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="submitting()" class="stagger">
+        <div class="mb-3">
+          <label for="userNameOrEmail" class="form-label">Username or email</label>
+          <div class="input-icon">
+            <i class="bi bi-person" aria-hidden="true"></i>
             <input
               id="userNameOrEmail"
               type="text"
               class="form-control"
               formControlName="userNameOrEmail"
+              placeholder="you@company.com"
               autocomplete="username"
               autocapitalize="none"
               spellcheck="false"
@@ -28,60 +41,71 @@
               [attr.aria-invalid]="isInvalid('userNameOrEmail')"
               aria-describedby="userNameOrEmailError"
             />
-            @if (isInvalid('userNameOrEmail')) {
-              <div id="userNameOrEmailError" class="invalid-feedback d-block">Username or email is required.</div>
-            }
           </div>
+          @if (isInvalid('userNameOrEmail')) {
+            <div id="userNameOrEmailError" class="invalid-feedback d-block">
+              <i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>Username or email is required.
+            </div>
+          }
+        </div>
 
-          <div class="mb-3">
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-baseline">
             <label for="password" class="form-label">Password</label>
-            <div class="input-group has-validation">
-              <input
-                id="password"
-                class="form-control"
-                formControlName="password"
-                autocomplete="current-password"
-                required
-                [type]="showPassword() ? 'text' : 'password'"
-                [class.is-invalid]="isInvalid('password')"
-                [attr.aria-invalid]="isInvalid('password')"
-                aria-describedby="passwordError"
-              />
-              <button
-                type="button"
-                class="btn btn-outline-secondary"
-                data-testid="toggle-password"
-                aria-controls="password"
-                [attr.aria-pressed]="showPassword()"
-                [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
-                (click)="togglePasswordVisibility()"
-              >
-                {{ showPassword() ? 'Hide' : 'Show' }}
-              </button>
-            </div>
-            @if (isInvalid('password')) {
-              <div id="passwordError" class="invalid-feedback d-block">Password is required.</div>
-            }
+            <a routerLink="/forgot-password" class="fs-xs fw-medium text-decoration-none">Forgot password?</a>
           </div>
-
-          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-            <div class="form-check">
-              <input id="rememberMe" type="checkbox" class="form-check-input" formControlName="rememberMe" />
-              <label for="rememberMe" class="form-check-label">Remember me</label>
-            </div>
-            <a routerLink="/forgot-password">Forgot password?</a>
+          <div class="input-icon has-action">
+            <i class="bi bi-lock" aria-hidden="true"></i>
+            <input
+              id="password"
+              class="form-control"
+              formControlName="password"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+              required
+              [type]="showPassword() ? 'text' : 'password'"
+              [class.is-invalid]="isInvalid('password')"
+              [attr.aria-invalid]="isInvalid('password')"
+              aria-describedby="passwordError"
+            />
+            <button
+              type="button"
+              class="input-action"
+              data-testid="toggle-password"
+              aria-controls="password"
+              [attr.aria-pressed]="showPassword()"
+              [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+              [title]="showPassword() ? 'Hide password' : 'Show password'"
+              (click)="togglePasswordVisibility()"
+            >
+              <i class="bi" [class.bi-eye]="!showPassword()" [class.bi-eye-slash]="showPassword()" aria-hidden="true"></i>
+            </button>
           </div>
+          @if (isInvalid('password')) {
+            <div id="passwordError" class="invalid-feedback d-block">
+              <i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>Password is required.
+            </div>
+          }
+        </div>
 
-          <button type="submit" class="btn btn-primary w-100" [disabled]="submitting()" data-testid="login-submit">
-            @if (submitting()) {
-              <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
-              <span role="status">Signing in…</span>
-            } @else {
-              Sign in
-            }
-          </button>
-        </form>
-      </div>
+        <div class="form-check form-switch mb-4">
+          <input id="rememberMe" type="checkbox" role="switch" class="form-check-input" formControlName="rememberMe" />
+          <label for="rememberMe" class="form-check-label fs-sm">Remember me for 14 days</label>
+        </div>
+
+        <button type="submit" class="btn btn-gradient w-100" [disabled]="submitting()" data-testid="login-submit">
+          @if (submitting()) {
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+            <span role="status">Signing in…</span>
+          } @else {
+            Sign in <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
+          }
+        </button>
+      </form>
+
+      <p class="auth-footer-note">
+        <i class="bi bi-shield-check me-1" aria-hidden="true"></i>Protected by encrypted, server-managed sessions.
+      </p>
     </div>
-  </div>
+  </section>
 </main>

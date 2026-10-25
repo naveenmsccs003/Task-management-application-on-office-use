@@ -7,12 +7,12 @@ import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../../../core/auth/aut
 import { AuthService } from '../../../core/auth/auth.service';
 import { passwordsMatchValidator } from '../../../core/auth/password-match.validator';
 import { toApiError } from '../../../core/http/api-error';
+import { AuthBrandComponent } from '../auth-brand/auth-brand.component';
 
 @Component({
   selector: 'app-reset-password',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, AuthBrandComponent],
   templateUrl: './reset-password.component.html',
-  styleUrl: '../auth-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ResetPasswordComponent {
