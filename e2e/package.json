@@ -1,0 +1,11 @@
+{
+  "name": "task-management-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "./run.sh"
+  },
+  "devDependencies": {
+    "playwright-core": "1.56.1"
+  }
+}

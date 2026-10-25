@@ -1,0 +1,4 @@
+node_modules/
+output/
+DevHost/bin/
+DevHost/obj/

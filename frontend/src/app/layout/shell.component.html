@@ -1,0 +1,19 @@
+<header>
+  <nav class="navbar navbar-expand bg-primary" data-bs-theme="dark" aria-label="Main navigation">
+    <div class="container flex-wrap gap-2">
+      <a class="navbar-brand fw-semibold" routerLink="/">Task Management System</a>
+      <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+        <span class="navbar-text text-white text-truncate" data-testid="current-user">{{ displayName() }}</span>
+        <a class="btn btn-sm btn-outline-light" routerLink="/account/change-password" routerLinkActive="active">
+          Change password
+        </a>
+        <button type="button" class="btn btn-sm btn-light" (click)="logout()" [disabled]="signingOut()">
+          Sign out
+        </button>
+      </div>
+    </div>
+  </nav>
+</header>
+<main class="container py-4">
+  <router-outlet />
+</main>
